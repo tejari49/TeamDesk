@@ -1,4 +1,4 @@
-name: Build APK from PlanWise.zip (AGP 9.0.1)
+name: Build APK (AGP 9.0.1)
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup JDK 17
@@ -20,57 +20,31 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Install tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip curl
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android packages (compileSdk 36)
+      - name: Install Android Packages
         run: |
           yes | sdkmanager --licenses
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
-      - name: Unzip PlanWise.zip
-        run: |
-          test -f "PlanWise.zip" || (echo "ERROR: PlanWise.zip not found in repo root" && exit 1)
-          unzip -q -o PlanWise.zip
-          test -d "PlanWise" || (echo "ERROR: Expected folder 'PlanWise' after unzip" && exit 1)
-
-      - name: Ensure AGP 9.0.1 in libs.versions.toml
-        run: |
-          sed -i 's/^agp = ".*"/agp = "9.0.1"/' PlanWise/gradle/libs.versions.toml
-          echo "AGP version:"
-          grep -n '^agp = ' PlanWise/gradle/libs.versions.toml
-
-      - name: Clean gradle.properties
-        run: |
-          sed -i '/^android\.newDsl=/d' PlanWise/gradle.properties
-          sed -i '/^android\.builtInKotlin=/d' PlanWise/gradle.properties
-          echo "gradle.properties (cleaned):"
-          tail -n 10 PlanWise/gradle.properties
-
-      - name: Download Gradle 9.3.1
-        run: |
-          curl -fsSL "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip" -o gradle.zip
-          unzip -q gradle.zip -d "$HOME/gradle"
-          chmod +x "$HOME/gradle/gradle-9.3.1/bin/gradle"
-          "$HOME/gradle/gradle-9.3.1/bin/gradle" --version
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x ./gradlew
 
       - name: Build Debug APK
-        run: |
-          "$HOME/gradle/gradle-9.3.1/bin/gradle" --no-daemon -p PlanWise clean assembleDebug
+        run: ./gradlew clean assembleDebug
 
-      - name: Build Release APK (unsigned)
-        run: |
-          "$HOME/gradle/gradle-9.3.1/bin/gradle" --no-daemon -p PlanWise assembleRelease
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
 
-      - name: Upload APKs
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: planwise-apks
-          path: |
-            PlanWise/app/build/outputs/apk/debug/*.apk
-            PlanWise/app/build/outputs/apk/release/*.apk
+          name: planwise-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: planwise-release-apk
+          path: app/build/outputs/apk/release/*.apk

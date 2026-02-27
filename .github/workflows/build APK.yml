@@ -36,7 +36,7 @@ jobs:
       - name: Unzip PlanWise.zip
         run: |
           test -f "PlanWise.zip" || (echo "ERROR: PlanWise.zip not found in repo root" && exit 1)
-          unzip -q PlanWise.zip
+          unzip -q -o PlanWise.zip
           test -d "PlanWise" || (echo "ERROR: Expected folder 'PlanWise' after unzip" && exit 1)
 
       - name: Ensure AGP 9.0.1 in libs.versions.toml
@@ -49,7 +49,7 @@ jobs:
         run: |
           sed -i '/^android\.newDsl=/d' PlanWise/gradle.properties
           sed -i '/^android\.builtInKotlin=/d' PlanWise/gradle.properties
-          echo "gradle.properties:"
+          echo "gradle.properties (cleaned):"
           tail -n 10 PlanWise/gradle.properties
 
       - name: Download Gradle 9.3.1

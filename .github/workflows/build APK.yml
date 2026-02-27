@@ -1,4 +1,4 @@
-name: Build APK from PlanWise.zip (no wrapper + AGP patch)
+name: Build APK from PlanWise.zip (no wrapper + AGP patch + disable new DSL)
 
 on:
   push:
@@ -39,12 +39,21 @@ jobs:
           unzip -q PlanWise.zip
           test -d "PlanWise" || (echo "ERROR: Expected folder 'PlanWise' after unzip" && exit 1)
 
-      - name: Patch AGP version to 9.0.1 (fix plugin not found)
+      - name: Patch AGP version to 9.0.1
         run: |
-          test -f "PlanWise/gradle/libs.versions.toml" || (echo "ERROR: libs.versions.toml not found" && exit 1)
           sed -i 's/^agp = ".*"/agp = "9.0.1"/' PlanWise/gradle/libs.versions.toml
-          echo "Patched AGP:"
+          echo "AGP:"
           grep -n '^agp = ' PlanWise/gradle/libs.versions.toml
+
+      - name: Disable AGP new DSL (fix Kotlin plugin incompatibility)
+        run: |
+          # remove any existing android.newDsl lines then append the safe override
+          sed -i '/^android\.newDsl=/d' PlanWise/gradle.properties
+          echo 'android.newDsl=false' >> PlanWise/gradle.properties
+          # (optional) keep your existing setting; harmless:
+          # android.builtInKotlin=false
+          echo "gradle.properties:"
+          tail -n 30 PlanWise/gradle.properties
 
       - name: Download Gradle 9.3.1
         run: |

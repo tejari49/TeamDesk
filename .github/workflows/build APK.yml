@@ -1,4 +1,4 @@
-name: Build APK from PlanWise.zip (AGP 9.0.1 + Kotlin Compiler Options)
+name: Build APK from PlanWise.zip (AGP 9.0.1)
 
 on:
   push:
@@ -39,19 +39,18 @@ jobs:
           unzip -q PlanWise.zip
           test -d "PlanWise" || (echo "ERROR: Expected folder 'PlanWise' after unzip" && exit 1)
 
-      - name: Patch AGP version to 9.0.1
+      - name: Ensure AGP 9.0.1 in libs.versions.toml
         run: |
           sed -i 's/^agp = ".*"/agp = "9.0.1"/' PlanWise/gradle/libs.versions.toml
-          echo "AGP:"
+          echo "AGP version:"
           grep -n '^agp = ' PlanWise/gradle/libs.versions.toml
 
-      - name: Clean gradle.properties (remove deprecated settings)
+      - name: Clean gradle.properties
         run: |
-          # Entferne deprecated Settings
           sed -i '/^android\.newDsl=/d' PlanWise/gradle.properties
           sed -i '/^android\.builtInKotlin=/d' PlanWise/gradle.properties
-          echo "gradle.properties (cleaned):"
-          tail -n 20 PlanWise/gradle.properties
+          echo "gradle.properties:"
+          tail -n 10 PlanWise/gradle.properties
 
       - name: Download Gradle 9.3.1
         run: |

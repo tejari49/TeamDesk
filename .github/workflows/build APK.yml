@@ -1,4 +1,4 @@
-name: Build APK from PlanWise.zip
+name: Build APK from PlanWise.zip (no wrapper)
 
 on:
   push:
@@ -19,12 +19,19 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "17"
-          cache: "gradle"
 
-      - name: Install unzip
+      - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip
+          sudo apt-get install -y unzip curl
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android packages (compileSdk 36)
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
       - name: Unzip PlanWise.zip
         run: |
@@ -32,31 +39,26 @@ jobs:
           unzip -q PlanWise.zip
           test -d "PlanWise" || (echo "ERROR: Expected folder 'PlanWise' after unzip" && exit 1)
 
-      - name: Fix gradlew script + permissions
+      # Optional: falls du gradlew später lokal nutzt – nicht nötig fürs CI, aber harmless
+      - name: Fix gradlew JVM opts (optional)
         run: |
-          chmod +x PlanWise/gradlew
-          # Fix broken DEFAULT_JVM_OPTS line (prevents "-Xmx64m" being treated as main class)
-          sed -i 's/^DEFAULT_JVM_OPTS=.*/DEFAULT_JVM_OPTS="-Xmx64m -Xms64m"/' PlanWise/gradlew
-          grep -n 'DEFAULT_JVM_OPTS' PlanWise/gradlew || true
+          chmod +x PlanWise/gradlew || true
+          sed -i 's/^DEFAULT_JVM_OPTS=.*/DEFAULT_JVM_OPTS="-Xmx64m -Xms64m"/' PlanWise/gradlew || true
 
-      - name: Pre-download Gradle distribution (forces unzip)
-        working-directory: PlanWise
+      - name: Download Gradle 9.3.1
         run: |
-          ./gradlew --no-daemon --version || true
-
-      - name: Fix Gradle distribution execute permissions (CI)
-        run: |
-          find "$HOME/.gradle/wrapper/dists" -type f -path "*/bin/gradle" -exec chmod +x {} \; || true
+          curl -fsSL "https://services.gradle.org/distributions/gradle-9.3.1-bin.zip" -o gradle.zip
+          unzip -q gradle.zip -d "$HOME/gradle"
+          chmod +x "$HOME/gradle/gradle-9.3.1/bin/gradle"
+          "$HOME/gradle/gradle-9.3.1/bin/gradle" --version
 
       - name: Build Debug APK
-        working-directory: PlanWise
         run: |
-          ./gradlew --no-daemon clean assembleDebug
+          "$HOME/gradle/gradle-9.3.1/bin/gradle" --no-daemon -p PlanWise clean assembleDebug
 
       - name: Build Release APK (unsigned)
-        working-directory: PlanWise
         run: |
-          ./gradlew --no-daemon assembleRelease
+          "$HOME/gradle/gradle-9.3.1/bin/gradle" --no-daemon -p PlanWise assembleRelease
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4

@@ -1,4 +1,4 @@
-name: Build APK from PlanWise.zip (no wrapper)
+name: Build APK from PlanWise.zip (no wrapper + AGP patch)
 
 on:
   push:
@@ -39,11 +39,12 @@ jobs:
           unzip -q PlanWise.zip
           test -d "PlanWise" || (echo "ERROR: Expected folder 'PlanWise' after unzip" && exit 1)
 
-      # Optional: falls du gradlew später lokal nutzt – nicht nötig fürs CI, aber harmless
-      - name: Fix gradlew JVM opts (optional)
+      - name: Patch AGP version to 9.0.1 (fix plugin not found)
         run: |
-          chmod +x PlanWise/gradlew || true
-          sed -i 's/^DEFAULT_JVM_OPTS=.*/DEFAULT_JVM_OPTS="-Xmx64m -Xms64m"/' PlanWise/gradlew || true
+          test -f "PlanWise/gradle/libs.versions.toml" || (echo "ERROR: libs.versions.toml not found" && exit 1)
+          sed -i 's/^agp = ".*"/agp = "9.0.1"/' PlanWise/gradle/libs.versions.toml
+          echo "Patched AGP:"
+          grep -n '^agp = ' PlanWise/gradle/libs.versions.toml
 
       - name: Download Gradle 9.3.1
         run: |

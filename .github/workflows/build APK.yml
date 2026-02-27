@@ -1,4 +1,4 @@
-name: Build APK from PlanWise.zip (AGP9 built-in Kotlin migration)
+name: Build APK from PlanWise.zip (AGP 9.0.1 + Kotlin Compiler Options)
 
 on:
   push:
@@ -39,64 +39,18 @@ jobs:
           unzip -q PlanWise.zip
           test -d "PlanWise" || (echo "ERROR: Expected folder 'PlanWise' after unzip" && exit 1)
 
-      # --- PATCH: migrate to built-in Kotlin (AGP 9) + legacy-kapt ---
-      - name: Patch project for AGP9 built-in Kotlin (CI)
+      - name: Patch AGP version to 9.0.1
         run: |
-          set -e
-
-          # 1) Ensure AGP version is resolvable
           sed -i 's/^agp = ".*"/agp = "9.0.1"/' PlanWise/gradle/libs.versions.toml
+          echo "AGP:"
+          grep -n '^agp = ' PlanWise/gradle/libs.versions.toml
 
-          # 2) Version catalog: remove kotlin-android + kotlin-kapt, add legacy-kapt
-          sed -i '/^kotlin-android = /d' PlanWise/gradle/libs.versions.toml
-          sed -i '/^kotlin-kapt = /d' PlanWise/gradle/libs.versions.toml
-          if ! grep -q '^legacy-kapt = ' PlanWise/gradle/libs.versions.toml; then
-            awk '
-              BEGIN {added=0}
-              /^\[plugins\]/ {
-                print
-                print "legacy-kapt = { id = \"com.android.legacy-kapt\", version.ref = \"agp\" }"
-                added=1
-                next
-              }
-              {print}
-            ' PlanWise/gradle/libs.versions.toml > /tmp/toml && mv /tmp/toml PlanWise/gradle/libs.versions.toml
-          fi
-
-          # 3) gradle.properties: enable built-in Kotlin, remove opt-out flags
-          sed -i '/^android\.builtInKotlin=/d' PlanWise/gradle.properties
+      - name: Clean gradle.properties (remove deprecated settings)
+        run: |
+          # Entferne deprecated Settings
           sed -i '/^android\.newDsl=/d' PlanWise/gradle.properties
-          echo "android.builtInKotlin=true" >> PlanWise/gradle.properties
-
-          # 4) Top-level build.gradle.kts: remove kotlin.android + kotlin.kapt, add legacy.kapt apply false
-          sed -i '/alias(libs\.plugins\.kotlin\.android) apply false/d' PlanWise/build.gradle.kts
-          sed -i '/alias(libs\.plugins\.kotlin\.kapt) apply false/d' PlanWise/build.gradle.kts
-          if ! grep -q 'libs\.plugins\.legacy\.kapt' PlanWise/build.gradle.kts; then
-            sed -i '/alias(libs\.plugins\.android\.application) apply false/a\    alias(libs.plugins.legacy.kapt) apply false' PlanWise/build.gradle.kts
-          fi
-
-          # 5) Module app/build.gradle.kts:
-          #    - remove kotlin.android + kotlin.kapt
-          #    - add legacy.kapt
-          #    - remove kotlinOptions { ... } (deprecated under built-in Kotlin)
-          #    - remove kapt { ... } block (optional)
-          sed -i '/alias(libs\.plugins\.kotlin\.android)/d' PlanWise/app/build.gradle.kts
-          sed -i '/alias(libs\.plugins\.kotlin\.kapt)/d' PlanWise/app/build.gradle.kts
-
-          if ! grep -q 'alias(libs\.plugins\.legacy\.kapt)' PlanWise/app/build.gradle.kts; then
-            sed -i '/alias(libs\.plugins\.android\.application)/a\    alias(libs.plugins.legacy.kapt)' PlanWise/app/build.gradle.kts
-          fi
-
-          # remove kotlinOptions block inside android { }
-          sed -i '/kotlinOptions[[:space:]]*{/,/^[[:space:]]*}/d' PlanWise/app/build.gradle.kts
-
-          # remove simple kapt { ... } block if present
-          sed -i '/^kapt[[:space:]]*{/,/^}/d' PlanWise/app/build.gradle.kts
-
-          echo "=== Patched versions.toml (agp + legacy-kapt) ==="
-          grep -n '^agp = ' PlanWise/gradle/libs.versions.toml || true
-          grep -n '^legacy-kapt = ' PlanWise/gradle/libs.versions.toml || true
-          echo "=== Patched gradle.properties tail ==="
+          sed -i '/^android\.builtInKotlin=/d' PlanWise/gradle.properties
+          echo "gradle.properties (cleaned):"
           tail -n 20 PlanWise/gradle.properties
 
       - name: Download Gradle 9.3.1

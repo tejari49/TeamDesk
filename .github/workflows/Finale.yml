@@ -1,4 +1,4 @@
-name: Build APK (AGP 9.0.1 - Stable)
+name: Build APK from PlanWise (AGP 9.0.1 - Stable)
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup JDK 17
@@ -31,20 +31,21 @@ jobs:
       - name: Extract PlanWise.zip
         run: |
           if [ ! -f "PlanWise.zip" ]; then
-            echo "❌ ERROR: PlanWise.zip not found!"
+            echo "ERROR: PlanWise.zip not found!"
             exit 1
           fi
           unzip -o -q PlanWise.zip
           if [ ! -d "PlanWise" ]; then
-            echo "❌ ERROR: PlanWise directory not created!"
+            echo "ERROR: PlanWise directory not created after unzip!"
             exit 1
           fi
           echo "✅ PlanWise extracted successfully"
+          ls -la PlanWise/
 
       - name: Make Gradle Wrapper Executable
         run: |
           chmod +x ./PlanWise/gradlew
-          echo "✅ Gradle wrapper made executable"
+          ls -lh ./PlanWise/gradlew
 
       - name: Build Debug APK
         run: |
@@ -57,16 +58,13 @@ jobs:
           ./gradlew assembleRelease
 
       - name: Upload Debug APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: planwise-debug
+          name: planwise-debug-apk
           path: PlanWise/app/build/outputs/apk/debug/*.apk
 
       - name: Upload Release APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: planwise-release
+          name: planwise-release-apk
           path: PlanWise/app/build/outputs/apk/release/*.apk
-          

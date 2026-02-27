@@ -21,7 +21,7 @@ jobs:
           java-version: "17"
           cache: "gradle"
 
-      - name: Install unzip (if missing)
+      - name: Install unzip
         run: |
           sudo apt-get update
           sudo apt-get install -y unzip
@@ -32,9 +32,13 @@ jobs:
           unzip -q PlanWise.zip
           test -d "PlanWise" || (echo "ERROR: Expected folder 'PlanWise' after unzip" && exit 1)
 
-      - name: Grant execute permission to gradlew
+      - name: Fix gradlew JVM opts (patch broken wrapper script)
         run: |
           chmod +x PlanWise/gradlew
+          # Replace the broken DEFAULT_JVM_OPTS line to avoid quotes being passed as class name
+          sed -i 's/^DEFAULT_JVM_OPTS=.*/DEFAULT_JVM_OPTS="-Xmx64m -Xms64m"/' PlanWise/gradlew
+          # (Optional) show the line for debugging
+          grep -n 'DEFAULT_JVM_OPTS' PlanWise/gradlew || true
 
       - name: Build Debug APK
         working-directory: PlanWise

@@ -39,6 +39,16 @@ const avatarFromEmail = (email: string, displayName: string) =>
   `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(displayName || email)}`;
 const makeUserCode = (uid: string) => uid.slice(0, 3).toUpperCase() + uid.slice(-5).toUpperCase();
 
+const blockedKeywords = ['porn', 'porno', 'sexcam', 'xxx', 'nsfw', 'pervers', 'escort'];
+export const containsBlockedContent = (value: string) => {
+  const text = value.toLowerCase();
+  return blockedKeywords.some((word) => text.includes(word));
+};
+
+const ensureSafe = (value: string) => {
+  if (containsBlockedContent(value)) throw new Error('Inhalt blockiert (Safety-Filter).');
+};
+
 export const createReleaseLog = async (payload: {
   category: 'new' | 'fix' | 'change';
   message: string;
@@ -73,9 +83,9 @@ export const createOrUpdateUserProfile = async (input: {
   if (existing.exists()) {
     const current = existing.data() as Partial<UserProfile>;
     await updateDoc(userRef, {
-      displayName: input.displayName,
+      displayName: current.displayName ?? input.displayName,
       email: input.email,
-      photoURL,
+      photoURL: current.photoURL ?? photoURL,
       role: role === 'admin' ? 'admin' : current.role ?? role,
       userCode: current.userCode ?? makeUserCode(input.uid),
       language: current.language ?? 'de',
@@ -117,6 +127,7 @@ export const updateUserLanguage = async (uid: string, language: 'de' | 'en') => 
 };
 
 export const updateOwnProfile = async (uid: string, payload: { displayName: string; photoURL: string }) => {
+  ensureSafe(payload.displayName);
   await updateDoc(doc(db, 'users', uid), {
     displayName: payload.displayName,
     photoURL: payload.photoURL,
@@ -176,6 +187,7 @@ export const upsertStatus = async (payload: {
   status: TeamStatus;
   note: string;
 }) => {
+  ensureSafe(payload.note || '');
   const id = `${payload.uid}_${payload.date.split('-').join('_')}`;
   await setDoc(doc(db, 'statuses', id), { ...payload, updatedAt: serverTimestamp() }, { merge: true });
   await createReleaseLog({ category: 'change', message: `Status gesetzt: ${payload.status}`, actorUid: payload.uid, actorName: payload.displayName });
@@ -195,6 +207,8 @@ export const subscribeToHandovers = (
 };
 
 export const createHandover = async (payload: Omit<HandoverDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
+  ensureSafe(payload.title);
+  ensureSafe(payload.description || '');
   await addDoc(collection(db, 'handovers'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   await createReleaseLog({ category: 'new', message: `Handover erstellt: ${payload.title}`, actorUid: payload.createdByUid, actorName: payload.createdBy });
 };
@@ -211,6 +225,8 @@ export const subscribeToAnnouncements = (publishedOnly: boolean, cb: (items: Ann
 };
 
 export const createAnnouncement = async (payload: Omit<AnnouncementDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
+  ensureSafe(payload.title);
+  ensureSafe(payload.message);
   await addDoc(collection(db, 'announcements'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   await createReleaseLog({ category: 'new', message: `Ankündigung: ${payload.title}`, actorUid: payload.createdByUid, actorName: payload.createdBy });
 };
@@ -227,6 +243,8 @@ export const subscribeToLinks = (visibleOnly: boolean, cb: (items: LinkDoc[]) =>
 };
 
 export const createLink = async (payload: Omit<LinkDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
+  ensureSafe(payload.title);
+  ensureSafe(payload.description || '');
   await addDoc(collection(db, 'links'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 };
 
@@ -301,15 +319,19 @@ export const subscribeToGroupMessages = (groupId: string, cb: (items: GroupMessa
     (snapshot) => cb(snapshot.docs.map((d) => mapDoc<GroupMessageDoc>(d.id, d.data())))
   );
 
-export const sendGroupMessage = async (groupId: string, senderUid: string, senderName: string, content: string) =>
-  addDoc(collection(db, 'groupMessages'), {
+export const sendGroupMessage = async (groupId: string, senderUid: string, senderName: string, content: string, quotedText?: string) => {
+  ensureSafe(content);
+  await addDoc(collection(db, 'groupMessages'), {
     groupId,
     senderUid,
     senderName,
     content,
+    quotedText: quotedText || '',
+    reactions: {},
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
+};
 
 const editableWithinHour = (createdAt?: Timestamp) => {
   if (!createdAt) return false;
@@ -334,15 +356,33 @@ export const sendDirectMessage = async (
   senderUid: string,
   receiverUid: string,
   senderName: string,
-  content: string
-) =>
-  addDoc(collection(db, 'directMessages'), {
+  content: string,
+  quotedText?: string
+) => {
+  ensureSafe(content);
+  await addDoc(collection(db, 'directMessages'), {
     conversationId,
     senderUid,
     receiverUid,
     senderName,
     content,
+    quotedText: quotedText || '',
+    reactions: {},
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+};
+
+
+export const reactToGroupMessage = async (id: string, uid: string, emoji: string) =>
+  updateDoc(doc(db, 'groupMessages', id), {
+    [`reactions.${uid}`]: emoji,
+    updatedAt: serverTimestamp()
+  });
+
+export const reactToDirectMessage = async (id: string, uid: string, emoji: string) =>
+  updateDoc(doc(db, 'directMessages', id), {
+    [`reactions.${uid}`]: emoji,
     updatedAt: serverTimestamp()
   });
 

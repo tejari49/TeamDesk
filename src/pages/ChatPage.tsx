@@ -4,6 +4,8 @@ import {
   conversationIdFromUids,
   deleteDirectMessage,
   deleteGroupMessage,
+  reactToDirectMessage,
+  reactToGroupMessage,
   sendDirectMessage,
   sendGroupMessage,
   subscribeToDirectMessages,
@@ -25,6 +27,8 @@ export const ChatPage = () => {
   const [groupMessages, setGroupMessages] = useState<GroupMessageDoc[]>([]);
   const [directMessages, setDirectMessages] = useState<DirectMessageDoc[]>([]);
   const [text, setText] = useState('');
+  const [quote, setQuote] = useState('');
+  const [menuId, setMenuId] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -33,7 +37,6 @@ export const ChatPage = () => {
 
   const activeGroup = groups.find((g) => g.id === activeGroupId) ?? groups[0];
   const memberUids = useMemo(() => activeGroup?.memberUids ?? [], [activeGroup]);
-
   useEffect(() => subscribeUsersByUids(memberUids, setContacts), [memberUids]);
 
   useEffect(() => {
@@ -47,10 +50,7 @@ export const ChatPage = () => {
   }, [activeContactUid, user]);
 
   useEffect(() => {
-    if (!conversationId) {
-      setDirectMessages([]);
-      return;
-    }
+    if (!conversationId) return setDirectMessages([]);
     return subscribeToDirectMessages(conversationId, setDirectMessages);
   }, [conversationId]);
 
@@ -60,12 +60,13 @@ export const ChatPage = () => {
   const send = async () => {
     if (!text.trim() || !user) return;
     if (mode === 'group' && activeGroup) {
-      await sendGroupMessage(activeGroup.id, user.uid, user.displayName ?? user.email ?? 'User', text);
+      await sendGroupMessage(activeGroup.id, user.uid, user.displayName ?? user.email ?? 'User', text, quote);
     }
     if (mode === 'direct' && activeContactUid && conversationId) {
-      await sendDirectMessage(conversationId, user.uid, activeContactUid, user.displayName ?? user.email ?? 'User', text);
+      await sendDirectMessage(conversationId, user.uid, activeContactUid, user.displayName ?? user.email ?? 'User', text, quote);
     }
     setText('');
+    setQuote('');
   };
 
   return (
@@ -95,17 +96,32 @@ export const ChatPage = () => {
             const editable = own && canEditMessage(m.createdAt);
             return (
               <div key={m.id} className={`msg ${own ? 'own' : ''}`}>
-                <div><strong>{m.senderName}</strong><p>{m.content}</p></div>
-                {editable && (
-                  <div className="inline">
-                    <button className="btn btn-secondary" onClick={() => { const next = window.prompt('Edit', m.content); if (next) { if (mode === 'group') void updateGroupMessage(m.id, next); else void updateDirectMessage(m.id, next); }}}>Bearbeiten</button>
-                    <button className="btn btn-danger" onClick={() => { if (mode === 'group') void deleteGroupMessage(m.id); else void deleteDirectMessage(m.id); }}>Löschen</button>
-                  </div>
-                )}
+                <div>
+                  <strong>{m.senderName}</strong>
+                  {m.quotedText && <p className="quoted">↪ {m.quotedText}</p>}
+                  <p>{m.content}</p>
+                  <div className="reactions">{Object.values(m.reactions ?? {}).join(' ')}</div>
+                </div>
+                <div className="msg-actions">
+                  <button className="icon-btn" onClick={() => setQuote(m.content)}>↩</button>
+                  <button className="icon-btn" onClick={() => { if (mode === 'group') void reactToGroupMessage(m.id, user?.uid ?? '', '👍'); else void reactToDirectMessage(m.id, user?.uid ?? '', '👍'); }}>👍</button>
+                  {editable && (
+                    <>
+                      <button className="icon-btn" onClick={() => setMenuId(menuId === m.id ? '' : m.id)}>⋯</button>
+                      {menuId === m.id && (
+                        <div className="msg-menu">
+                          <button onClick={() => { const next = window.prompt('Bearbeiten', m.content); if (next) { if (mode === 'group') void updateGroupMessage(m.id, next); else void updateDirectMessage(m.id, next); } setMenuId(''); }}>Bearbeiten</button>
+                          <button onClick={() => { if (mode === 'group') void deleteGroupMessage(m.id); else void deleteDirectMessage(m.id); setMenuId(''); }}>Löschen</button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
+        {quote && <p className="quoted">Antwort auf: {quote}</p>}
         <div className="chat-input">
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Nachricht schreiben..." />
           <button className="btn" onClick={() => void send()}>Senden</button>

@@ -60,6 +60,7 @@ export interface LinkDoc {
   title: string;
   url: string;
   category: string;
+  description?: string;
   sortOrder: number;
   visible: boolean;
   createdAt: Timestamp;
@@ -83,6 +84,8 @@ export interface GroupMessageDoc {
   senderUid: string;
   senderName: string;
   content: string;
+  quotedText?: string;
+  reactions?: Record<string, string>;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -94,6 +97,8 @@ export interface DirectMessageDoc {
   receiverUid: string;
   senderName: string;
   content: string;
+  quotedText?: string;
+  reactions?: Record<string, string>;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

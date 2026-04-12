@@ -78,3 +78,6 @@ input, select, textarea { width: 100%; border: 1px solid #a7f3d0; border-radius:
 }
 
 .note-italic { font-style: italic; color: #0f766e; margin: .25rem 0 0; }
+
+.release-footer { margin-top: 1rem; text-align: center; }
+.release-link { display: inline-block; padding: .45rem .8rem; border: 1px solid #6ee7b7; border-radius: 999px; background: #f0fdf4; text-decoration: none; color: #047857; }

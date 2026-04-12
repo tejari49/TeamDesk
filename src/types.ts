@@ -96,3 +96,13 @@ export interface DirectMessageDoc {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+export interface ReleaseLogDoc {
+  id: string;
+  version: string;
+  category: "new" | "fix" | "change";
+  message: string;
+  actorUid: string;
+  actorName: string;
+  createdAt: Timestamp;
+}

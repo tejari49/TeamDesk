@@ -8,3 +8,5 @@ export const firebaseConfig = {
 };
 
 export const ADMIN_EMAIL_ALLOWLIST = ['irajet.ramadani@gmail.com', 'admin@teamdesk.local'];
+
+export const APP_VERSION = '0.2.0';

@@ -6,7 +6,8 @@ const navItems = [
   { to: '/groups', label: 'Gruppen' },
   { to: '/handovers', label: 'Handovers' },
   { to: '/team', label: 'Team' },
-  { to: '/links', label: 'Links' }
+  { to: '/links', label: 'Links' },
+  { to: '/settings', label: 'Einstellungen' }
 ];
 
 export const Layout = () => {
@@ -33,6 +34,9 @@ export const Layout = () => {
       </aside>
       <main className="content">
         <Outlet />
+        <div className="release-footer">
+          <NavLink to="/releases" className="release-link">Release Verlauf</NavLink>
+        </div>
       </main>
       <nav className="bottom-nav">
         {items.map((item) => (

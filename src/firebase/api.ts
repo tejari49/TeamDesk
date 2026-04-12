@@ -18,7 +18,7 @@ import {
   type Timestamp
 } from 'firebase/firestore';
 import { db } from './client';
-import { ADMIN_EMAIL_ALLOWLIST } from './config';
+import { ADMIN_EMAIL_ALLOWLIST, APP_VERSION } from './config';
 import type {
   AnnouncementDoc,
   DirectMessageDoc,
@@ -30,13 +30,34 @@ import type {
   LinkDoc,
   StatusDoc,
   TeamStatus,
-  UserProfile
+  UserProfile,
+  ReleaseLogDoc
 } from '../types';
 
 const mapDoc = <T>(id: string, data: object) => ({ id, ...(data as T) });
 const avatarFromEmail = (email: string, displayName: string) =>
   `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(displayName || email)}`;
 const makeUserCode = (uid: string) => uid.slice(0, 3).toUpperCase() + uid.slice(-5).toUpperCase();
+
+export const createReleaseLog = async (payload: {
+  category: 'new' | 'fix' | 'change';
+  message: string;
+  actorUid: string;
+  actorName: string;
+}) =>
+  addDoc(collection(db, 'release_logs'), {
+    version: APP_VERSION,
+    category: payload.category,
+    message: payload.message,
+    actorUid: payload.actorUid,
+    actorName: payload.actorName,
+    createdAt: serverTimestamp()
+  });
+
+export const subscribeReleaseLogs = (cb: (items: ReleaseLogDoc[]) => void) =>
+  onSnapshot(query(collection(db, 'release_logs'), orderBy('createdAt', 'desc'), limit(200)), (snapshot) =>
+    cb(snapshot.docs.map((d) => mapDoc<ReleaseLogDoc>(d.id, d.data())))
+  );
 
 export const createOrUpdateUserProfile = async (input: {
   uid: string;
@@ -90,6 +111,7 @@ export const updateOwnProfile = async (uid: string, payload: { displayName: stri
     photoURL: payload.photoURL,
     updatedAt: serverTimestamp()
   });
+  await createReleaseLog({ category: 'change', message: 'Profil aktualisiert', actorUid: uid, actorName: payload.displayName });
 };
 
 export const subscribeToUsers = (cb: (users: UserProfile[]) => void) =>
@@ -145,6 +167,7 @@ export const upsertStatus = async (payload: {
 }) => {
   const id = `${payload.uid}_${payload.date.split('-').join('_')}`;
   await setDoc(doc(db, 'statuses', id), { ...payload, updatedAt: serverTimestamp() }, { merge: true });
+  await createReleaseLog({ category: 'change', message: `Status gesetzt: ${payload.status}`, actorUid: payload.uid, actorName: payload.displayName });
 };
 
 export const subscribeToHandovers = (
@@ -160,8 +183,10 @@ export const subscribeToHandovers = (
   );
 };
 
-export const createHandover = async (payload: Omit<HandoverDoc, 'id' | 'createdAt' | 'updatedAt'>) =>
-  addDoc(collection(db, 'handovers'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+export const createHandover = async (payload: Omit<HandoverDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
+  await addDoc(collection(db, 'handovers'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  await createReleaseLog({ category: 'new', message: `Handover erstellt: ${payload.title}`, actorUid: payload.createdByUid, actorName: payload.createdBy });
+};
 
 export const updateHandover = async (id: string, payload: Partial<HandoverDoc>) =>
   updateDoc(doc(db, 'handovers', id), { ...payload, updatedAt: serverTimestamp() });
@@ -174,8 +199,10 @@ export const subscribeToAnnouncements = (publishedOnly: boolean, cb: (items: Ann
   );
 };
 
-export const createAnnouncement = async (payload: Omit<AnnouncementDoc, 'id' | 'createdAt' | 'updatedAt'>) =>
-  addDoc(collection(db, 'announcements'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+export const createAnnouncement = async (payload: Omit<AnnouncementDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
+  await addDoc(collection(db, 'announcements'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  await createReleaseLog({ category: 'new', message: `Ankündigung: ${payload.title}`, actorUid: payload.createdByUid, actorName: payload.createdBy });
+};
 
 export const updateAnnouncement = async (id: string, payload: Partial<AnnouncementDoc>) =>
   updateDoc(doc(db, 'announcements', id), { ...payload, updatedAt: serverTimestamp() });
@@ -188,8 +215,9 @@ export const subscribeToLinks = (visibleOnly: boolean, cb: (items: LinkDoc[]) =>
   );
 };
 
-export const createLink = async (payload: Omit<LinkDoc, 'id' | 'createdAt' | 'updatedAt'>) =>
-  addDoc(collection(db, 'links'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+export const createLink = async (payload: Omit<LinkDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
+  await addDoc(collection(db, 'links'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+};
 
 export const getOpenHandoverCount = async () => {
   const snapshot = await getDocs(query(collection(db, 'handovers'), where('status', '==', 'open')));
@@ -224,6 +252,7 @@ export const createGroup = async (payload: { name: string; createdByUid: string;
   });
 
   await updateDoc(doc(db, 'users', payload.createdByUid), { groupIds: arrayUnion(groupRef.id), updatedAt: serverTimestamp() });
+  await createReleaseLog({ category: 'new', message: `Gruppe erstellt: ${payload.name}`, actorUid: payload.createdByUid, actorName: payload.createdByName });
 };
 
 export const addUserToGroup = async (groupId: string, uid: string) => {

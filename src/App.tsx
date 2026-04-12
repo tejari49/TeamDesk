@@ -7,6 +7,8 @@ import { GroupsPage } from './pages/GroupsPage';
 import { HandoversPage } from './pages/HandoversPage';
 import { LinksPage } from './pages/LinksPage';
 import { LoginPage } from './pages/LoginPage';
+import { ReleasesPage } from './pages/ReleasesPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { TeamPage } from './pages/TeamPage';
 import { TodayPage } from './pages/TodayPage';
 
@@ -28,6 +30,8 @@ export default function App() {
         <Route path="/handovers" element={<HandoversPage />} />
         <Route path="/team" element={<TeamPage />} />
         <Route path="/links" element={<LinksPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/releases" element={<ReleasesPage />} />
         <Route path="/admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to={user ? '/' : '/login'} replace />} />

@@ -96,6 +96,14 @@ export const GroupsPage = () => {
       <section className="card bubble">
         <h2>Gruppen</h2>
         <form className="stack" onSubmit={submitGroup}>
+        <label>Gruppe auswählen</label>
+        <select value={activeGroup?.id ?? ''} onChange={(e) => setSelectedGroup(e.target.value)}>
+          <option value="">-- bitte wählen --</option>
+          {myGroups.map((g) => (
+            <option key={g.id} value={g.id}>{g.name}</option>
+          ))}
+        </select>
+
           <input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Neue Gruppe" />
           <button className="btn">Gruppe erstellen</button>
         </form>

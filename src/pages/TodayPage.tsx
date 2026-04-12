@@ -8,7 +8,7 @@ import type { AnnouncementDoc, GroupDoc, StatusDoc, UserProfile } from '../types
 const online = (u: UserProfile) => !!u.lastActiveAt && Date.now() - u.lastActiveAt.toDate().getTime() < 5 * 60 * 1000;
 
 export const TodayPage = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [statuses, setStatuses] = useState<StatusDoc[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementDoc[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -17,7 +17,10 @@ export const TodayPage = () => {
 
   useEffect(() => subscribeToStatusesByDate(todayIso(), setStatuses), []);
   useEffect(() => subscribeToAnnouncements(true, setAnnouncements), []);
-  useEffect(() => subscribeToGroups(setGroups), []);
+  useEffect(() => {
+    if (!user) return;
+    return subscribeToGroups(user.uid, profile?.role === 'admin', setGroups);
+  }, [profile?.role, user]);
   useEffect(() => {
     void getOpenHandoverCount().then(setOpenCount);
   }, []);
@@ -34,6 +37,12 @@ export const TodayPage = () => {
     <div>
       <h2>Guten Morgen, {user?.displayName ?? 'Kollege'} 👋</h2>
       <div className="grid-3">
+        <section className="card bubble">
+          <h3>Mein Verknüpfungscode</h3>
+          <p className="big-number">{profile?.userCode ?? '-'}</p>
+          <small>Diesen Code teilst du mit Gruppenadmins.</small>
+        </section>
+
         <section className="card bubble">
           <h3>Online jetzt</h3>
           <p className="big-number">{onlineCount}</p>

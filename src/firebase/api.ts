@@ -196,10 +196,21 @@ export const getOpenHandoverCount = async () => {
   return snapshot.size;
 };
 
-export const subscribeToGroups = (cb: (groups: GroupDoc[]) => void) =>
-  onSnapshot(query(collection(db, 'groups'), orderBy('name', 'asc')), (snapshot) => {
-    cb(snapshot.docs.map((d) => mapDoc<GroupDoc>(d.id, d.data())));
-  });
+export const subscribeToGroups = (
+  uid: string,
+  isAdmin: boolean,
+  cb: (groups: GroupDoc[]) => void
+) => {
+  const base = collection(db, 'groups');
+  const q = isAdmin
+    ? query(base, orderBy('name', 'asc'))
+    : query(base, where('memberUids', 'array-contains', uid), orderBy('name', 'asc'));
+  return onSnapshot(
+    q,
+    (snapshot) => cb(snapshot.docs.map((d) => mapDoc<GroupDoc>(d.id, d.data()))),
+    () => cb([])
+  );
+};
 
 export const createGroup = async (payload: { name: string; createdByUid: string; createdByName: string }) => {
   const groupRef = await addDoc(collection(db, 'groups'), {

@@ -20,7 +20,10 @@ export const TeamPage = () => {
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
   const [photoSeed, setPhotoSeed] = useState(profile?.displayName ?? 'teamdesk');
 
-  useEffect(() => subscribeToGroups(setGroups), []);
+  useEffect(() => {
+    if (!user) return;
+    return subscribeToGroups(user.uid, profile?.role === 'admin', setGroups);
+  }, [profile?.role, user]);
   useEffect(() => subscribeToStatusesByDate(todayIso(), setTodayStatuses), []);
 
   const myGroups = useMemo(() => groups.filter((g) => g.memberUids.includes(user?.uid ?? '')), [groups, user?.uid]);

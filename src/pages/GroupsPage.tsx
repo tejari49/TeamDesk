@@ -24,7 +24,7 @@ import { formatRelativeTime } from '../utils/date';
 const isOnline = (date?: { toDate: () => Date }) => !!date && Date.now() - date.toDate().getTime() < 5 * 60 * 1000;
 
 export const GroupsPage = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [groupName, setGroupName] = useState('');
@@ -36,7 +36,10 @@ export const GroupsPage = () => {
   const [directText, setDirectText] = useState('');
   const [directMessages, setDirectMessages] = useState<DirectMessageDoc[]>([]);
 
-  useEffect(() => subscribeToGroups(setGroups), []);
+  useEffect(() => {
+    if (!user) return;
+    return subscribeToGroups(user.uid, profile?.role === 'admin', setGroups);
+  }, [profile?.role, user]);
 
   const myGroups = useMemo(() => groups.filter((g) => g.memberUids.includes(user?.uid ?? '')), [groups, user?.uid]);
   const activeGroup = groups.find((g) => g.id === selectedGroup) ?? myGroups[0];

@@ -13,7 +13,10 @@ export const AdminPage = () => {
 
   useEffect(() => subscribeToAnnouncements(false, setAnnouncements), []);
   useEffect(() => subscribeToUsers(setUsers), []);
-  useEffect(() => subscribeToGroups(setGroups), []);
+  useEffect(() => {
+    if (!user) return;
+    return subscribeToGroups(user.uid, profile?.role === 'admin', setGroups);
+  }, [profile?.role, user]);
 
   if (profile?.role !== 'admin') return <p>Nicht berechtigt.</p>;
 

@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -13,13 +14,16 @@ import {
   setDoc,
   updateDoc,
   where,
-  type QueryConstraint
+  type QueryConstraint,
+  type Timestamp
 } from 'firebase/firestore';
 import { db } from './client';
 import { ADMIN_EMAIL_ALLOWLIST } from './config';
 import type {
   AnnouncementDoc,
+  DirectMessageDoc,
   GroupDoc,
+  GroupMessageDoc,
   HandoverDoc,
   HandoverPriority,
   HandoverState,
@@ -30,9 +34,9 @@ import type {
 } from '../types';
 
 const mapDoc = <T>(id: string, data: object) => ({ id, ...(data as T) });
-
 const avatarFromEmail = (email: string, displayName: string) =>
   `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(displayName || email)}`;
+const makeUserCode = (uid: string) => uid.slice(0, 3).toUpperCase() + uid.slice(-5).toUpperCase();
 
 export const createOrUpdateUserProfile = async (input: {
   uid: string;
@@ -52,6 +56,7 @@ export const createOrUpdateUserProfile = async (input: {
       email: input.email,
       photoURL,
       role: current.role ?? role,
+      userCode: current.userCode ?? makeUserCode(input.uid),
       lastActiveAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -60,6 +65,7 @@ export const createOrUpdateUserProfile = async (input: {
 
   await setDoc(userRef, {
     uid: input.uid,
+    userCode: makeUserCode(input.uid),
     displayName: input.displayName,
     email: input.email,
     photoURL,
@@ -91,10 +97,44 @@ export const subscribeToUsers = (cb: (users: UserProfile[]) => void) =>
     cb(snapshot.docs.map((d) => mapDoc<UserProfile>(d.id, d.data())));
   });
 
-export const subscribeToStatusesByDate = (date: string, cb: (statuses: StatusDoc[]) => void) => {
-  const q = query(collection(db, 'statuses'), where('date', '==', date), orderBy('updatedAt', 'desc'));
-  return onSnapshot(q, (snapshot) => cb(snapshot.docs.map((d) => mapDoc<StatusDoc>(d.id, d.data()))));
+export const subscribeUsersByUids = (uids: string[], cb: (users: UserProfile[]) => void) => {
+  if (!uids.length) {
+    cb([]);
+    return () => undefined;
+  }
+  const chunks = [] as string[][];
+  for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
+  const unsubs = chunks.map((chunk) =>
+    onSnapshot(query(collection(db, 'users'), where('uid', 'in', chunk)), () => {
+      void getUsersByUids(uids).then(cb);
+    })
+  );
+  void getUsersByUids(uids).then(cb);
+  return () => unsubs.forEach((u) => u());
 };
+
+export const getUsersByUids = async (uids: string[]) => {
+  if (!uids.length) return [] as UserProfile[];
+  const chunks = [] as string[][];
+  for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
+  const docs = await Promise.all(
+    chunks.map((chunk) => getDocs(query(collection(db, 'users'), where('uid', 'in', chunk))))
+  );
+  return docs.flatMap((snap) => snap.docs.map((d) => mapDoc<UserProfile>(d.id, d.data())));
+};
+
+export const getUserByCode = async (code: string) => {
+  const snap = await getDocs(query(collection(db, 'users'), where('userCode', '==', code), limit(1)));
+  if (snap.empty) return null;
+  const docSnap = snap.docs[0];
+  return mapDoc<UserProfile>(docSnap.id, docSnap.data());
+};
+
+export const subscribeToStatusesByDate = (date: string, cb: (statuses: StatusDoc[]) => void) =>
+  onSnapshot(
+    query(collection(db, 'statuses'), where('date', '==', date), orderBy('updatedAt', 'desc')),
+    (snapshot) => cb(snapshot.docs.map((d) => mapDoc<StatusDoc>(d.id, d.data())))
+  );
 
 export const upsertStatus = async (payload: {
   uid: string;
@@ -104,14 +144,7 @@ export const upsertStatus = async (payload: {
   note: string;
 }) => {
   const id = `${payload.uid}_${payload.date.split('-').join('_')}`;
-  await setDoc(
-    doc(db, 'statuses', id),
-    {
-      ...payload,
-      updatedAt: serverTimestamp()
-    },
-    { merge: true }
-  );
+  await setDoc(doc(db, 'statuses', id), { ...payload, updatedAt: serverTimestamp() }, { merge: true });
 };
 
 export const subscribeToHandovers = (
@@ -127,13 +160,11 @@ export const subscribeToHandovers = (
   );
 };
 
-export const createHandover = async (payload: Omit<HandoverDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
-  await addDoc(collection(db, 'handovers'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-};
+export const createHandover = async (payload: Omit<HandoverDoc, 'id' | 'createdAt' | 'updatedAt'>) =>
+  addDoc(collection(db, 'handovers'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 
-export const updateHandover = async (id: string, payload: Partial<HandoverDoc>) => {
-  await updateDoc(doc(db, 'handovers', id), { ...payload, updatedAt: serverTimestamp() });
-};
+export const updateHandover = async (id: string, payload: Partial<HandoverDoc>) =>
+  updateDoc(doc(db, 'handovers', id), { ...payload, updatedAt: serverTimestamp() });
 
 export const subscribeToAnnouncements = (publishedOnly: boolean, cb: (items: AnnouncementDoc[]) => void) => {
   const constraints: QueryConstraint[] = [orderBy('updatedAt', 'desc')];
@@ -143,17 +174,11 @@ export const subscribeToAnnouncements = (publishedOnly: boolean, cb: (items: Ann
   );
 };
 
-export const createAnnouncement = async (payload: Omit<AnnouncementDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
-  await addDoc(collection(db, 'announcements'), {
-    ...payload,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-};
+export const createAnnouncement = async (payload: Omit<AnnouncementDoc, 'id' | 'createdAt' | 'updatedAt'>) =>
+  addDoc(collection(db, 'announcements'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 
-export const updateAnnouncement = async (id: string, payload: Partial<AnnouncementDoc>) => {
-  await updateDoc(doc(db, 'announcements', id), { ...payload, updatedAt: serverTimestamp() });
-};
+export const updateAnnouncement = async (id: string, payload: Partial<AnnouncementDoc>) =>
+  updateDoc(doc(db, 'announcements', id), { ...payload, updatedAt: serverTimestamp() });
 
 export const subscribeToLinks = (visibleOnly: boolean, cb: (items: LinkDoc[]) => void) => {
   const constraints: QueryConstraint[] = [orderBy('category', 'asc'), orderBy('sortOrder', 'asc')];
@@ -163,9 +188,8 @@ export const subscribeToLinks = (visibleOnly: boolean, cb: (items: LinkDoc[]) =>
   );
 };
 
-export const createLink = async (payload: Omit<LinkDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
-  await addDoc(collection(db, 'links'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-};
+export const createLink = async (payload: Omit<LinkDoc, 'id' | 'createdAt' | 'updatedAt'>) =>
+  addDoc(collection(db, 'links'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 
 export const getOpenHandoverCount = async () => {
   const snapshot = await getDocs(query(collection(db, 'handovers'), where('status', '==', 'open')));
@@ -177,11 +201,7 @@ export const subscribeToGroups = (cb: (groups: GroupDoc[]) => void) =>
     cb(snapshot.docs.map((d) => mapDoc<GroupDoc>(d.id, d.data())));
   });
 
-export const createGroup = async (payload: {
-  name: string;
-  createdByUid: string;
-  createdByName: string;
-}) => {
+export const createGroup = async (payload: { name: string; createdByUid: string; createdByName: string }) => {
   const groupRef = await addDoc(collection(db, 'groups'), {
     name: payload.name,
     createdByUid: payload.createdByUid,
@@ -192,21 +212,18 @@ export const createGroup = async (payload: {
     updatedAt: serverTimestamp()
   });
 
-  await updateDoc(doc(db, 'users', payload.createdByUid), {
-    groupIds: arrayUnion(groupRef.id),
-    updatedAt: serverTimestamp()
-  });
+  await updateDoc(doc(db, 'users', payload.createdByUid), { groupIds: arrayUnion(groupRef.id), updatedAt: serverTimestamp() });
 };
 
 export const addUserToGroup = async (groupId: string, uid: string) => {
-  await updateDoc(doc(db, 'groups', groupId), {
-    memberUids: arrayUnion(uid),
-    updatedAt: serverTimestamp()
-  });
-  await updateDoc(doc(db, 'users', uid), {
-    groupIds: arrayUnion(groupId),
-    updatedAt: serverTimestamp()
-  });
+  await updateDoc(doc(db, 'groups', groupId), { memberUids: arrayUnion(uid), updatedAt: serverTimestamp() });
+  await updateDoc(doc(db, 'users', uid), { groupIds: arrayUnion(groupId), updatedAt: serverTimestamp() });
+};
+
+export const addUserToGroupByCode = async (groupId: string, userCode: string) => {
+  const user = await getUserByCode(userCode.toUpperCase());
+  if (!user) throw new Error('Code nicht gefunden');
+  await addUserToGroup(groupId, user.uid);
 };
 
 export const removeUserFromGroup = async (groupId: string, uid: string) => {
@@ -215,16 +232,71 @@ export const removeUserFromGroup = async (groupId: string, uid: string) => {
     adminUids: arrayRemove(uid),
     updatedAt: serverTimestamp()
   });
-  await updateDoc(doc(db, 'users', uid), {
-    groupIds: arrayRemove(groupId),
-    updatedAt: serverTimestamp()
-  });
+  await updateDoc(doc(db, 'users', uid), { groupIds: arrayRemove(groupId), updatedAt: serverTimestamp() });
 };
 
-export const promoteGroupAdmin = async (groupId: string, uid: string) => {
-  await updateDoc(doc(db, 'groups', groupId), {
+export const promoteGroupAdmin = async (groupId: string, uid: string) =>
+  updateDoc(doc(db, 'groups', groupId), {
     adminUids: arrayUnion(uid),
     memberUids: arrayUnion(uid),
     updatedAt: serverTimestamp()
   });
+
+export const conversationIdFromUids = (uidA: string, uidB: string) => [uidA, uidB].sort().join('__');
+
+export const subscribeToGroupMessages = (groupId: string, cb: (items: GroupMessageDoc[]) => void) =>
+  onSnapshot(
+    query(collection(db, 'groupMessages'), where('groupId', '==', groupId), orderBy('createdAt', 'asc')),
+    (snapshot) => cb(snapshot.docs.map((d) => mapDoc<GroupMessageDoc>(d.id, d.data())))
+  );
+
+export const sendGroupMessage = async (groupId: string, senderUid: string, senderName: string, content: string) =>
+  addDoc(collection(db, 'groupMessages'), {
+    groupId,
+    senderUid,
+    senderName,
+    content,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+
+const editableWithinHour = (createdAt?: Timestamp) => {
+  if (!createdAt) return false;
+  return Date.now() - createdAt.toDate().getTime() <= 3_600_000;
 };
+
+export const canEditMessage = editableWithinHour;
+
+export const updateGroupMessage = async (id: string, content: string) =>
+  updateDoc(doc(db, 'groupMessages', id), { content, updatedAt: serverTimestamp() });
+
+export const deleteGroupMessage = async (id: string) => updateDoc(doc(db, 'groupMessages', id), { content: '[gelöscht]', updatedAt: serverTimestamp() });
+
+export const subscribeToDirectMessages = (conversationId: string, cb: (items: DirectMessageDoc[]) => void) =>
+  onSnapshot(
+    query(collection(db, 'directMessages'), where('conversationId', '==', conversationId), orderBy('createdAt', 'asc')),
+    (snapshot) => cb(snapshot.docs.map((d) => mapDoc<DirectMessageDoc>(d.id, d.data())))
+  );
+
+export const sendDirectMessage = async (
+  conversationId: string,
+  senderUid: string,
+  receiverUid: string,
+  senderName: string,
+  content: string
+) =>
+  addDoc(collection(db, 'directMessages'), {
+    conversationId,
+    senderUid,
+    receiverUid,
+    senderName,
+    content,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+
+export const updateDirectMessage = async (id: string, content: string) =>
+  updateDoc(doc(db, 'directMessages', id), { content, updatedAt: serverTimestamp() });
+
+export const deleteDirectMessage = async (id: string) =>
+  updateDoc(doc(db, 'directMessages', id), { content: '[gelöscht]', updatedAt: serverTimestamp() });

@@ -7,6 +7,7 @@ export type HandoverState = 'open' | 'done';
 
 export interface UserProfile {
   uid: string;
+  userCode: string;
   displayName: string;
   email: string;
   photoURL?: string;
@@ -71,6 +72,27 @@ export interface GroupDoc {
   createdByName: string;
   adminUids: string[];
   memberUids: string[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface GroupMessageDoc {
+  id: string;
+  groupId: string;
+  senderUid: string;
+  senderName: string;
+  content: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface DirectMessageDoc {
+  id: string;
+  conversationId: string;
+  senderUid: string;
+  receiverUid: string;
+  senderName: string;
+  content: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

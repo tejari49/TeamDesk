@@ -10,6 +10,9 @@ TeamDesk is a lightweight internal dashboard PWA for daily team operations. It h
 - Team directory with role and latest status
 - Gruppenmanagement (erstellen, Mitglieder sehen, als Gruppenadmin Mitglieder verwalten)
 - Profilbereich (Name ändern + Avatar via DiceBear API)
+- Nutzer erhalten einen individuellen Code (`userCode`) zum Hinzufügen in Gruppen
+- Nutzer sehen im Teambereich nur Mitglieder ihrer eigenen Gruppen
+- Gruppenchat + Direktnachrichten in Gruppen mit Bearbeiten/Löschen innerhalb von 1 Stunde
 - Quick links grouped by category
 - Admin section for announcements and role visibility
 - Progressive Web App installability and offline app-shell caching

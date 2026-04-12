@@ -76,3 +76,5 @@ input, select, textarea { width: 100%; border: 1px solid #a7f3d0; border-radius:
   .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(6,1fr); background: #065f46; padding: .4rem; }
   .bottom-nav .nav-link { color: white; text-align: center; font-size: .75rem; }
 }
+
+.note-italic { font-style: italic; color: #0f766e; margin: .25rem 0 0; }

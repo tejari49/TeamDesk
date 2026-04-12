@@ -8,6 +8,8 @@ TeamDesk is a lightweight internal dashboard PWA for daily team operations. It h
 - Handover creation and completion tracking with filtering
 - Today dashboard with greeting, overview, announcements, and quick actions
 - Team directory with role and latest status
+- Gruppenmanagement (erstellen, Mitglieder sehen, als Gruppenadmin Mitglieder verwalten)
+- Profilbereich (Name ändern + Avatar via DiceBear API)
 - Quick links grouped by category
 - Admin section for announcements and role visibility
 - Progressive Web App installability and offline app-shell caching
@@ -36,7 +38,7 @@ npm run lint
 This repository is preconfigured with the provided Firebase project config in `src/firebase/config.ts`.
 
 Admin users are determined by:
-1. email allowlist in `ADMIN_EMAIL_ALLOWLIST`, and/or
+1. email allowlist in `ADMIN_EMAIL_ALLOWLIST` (inkl. `irajet.ramadani@gmail.com`), and/or
 2. Firestore user doc `role: "admin"`.
 
 On first Google sign-in, TeamDesk creates/updates `users/{uid}`.

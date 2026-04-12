@@ -1,5 +1,7 @@
 import {
   addDoc,
+  arrayRemove,
+  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -15,9 +17,22 @@ import {
 } from 'firebase/firestore';
 import { db } from './client';
 import { ADMIN_EMAIL_ALLOWLIST } from './config';
-import type { AnnouncementDoc, HandoverDoc, HandoverPriority, HandoverState, LinkDoc, StatusDoc, TeamStatus, UserProfile } from '../types';
+import type {
+  AnnouncementDoc,
+  GroupDoc,
+  HandoverDoc,
+  HandoverPriority,
+  HandoverState,
+  LinkDoc,
+  StatusDoc,
+  TeamStatus,
+  UserProfile
+} from '../types';
 
 const mapDoc = <T>(id: string, data: object) => ({ id, ...(data as T) });
+
+const avatarFromEmail = (email: string, displayName: string) =>
+  `https://api.dicebear.com/9.x/glass/svg?seed=${encodeURIComponent(displayName || email)}`;
 
 export const createOrUpdateUserProfile = async (input: {
   uid: string;
@@ -28,14 +43,16 @@ export const createOrUpdateUserProfile = async (input: {
   const userRef = doc(db, 'users', input.uid);
   const existing = await getDoc(userRef);
   const role = ADMIN_EMAIL_ALLOWLIST.includes(input.email) ? 'admin' : 'member';
+  const photoURL = input.photoURL || avatarFromEmail(input.email, input.displayName);
 
   if (existing.exists()) {
     const current = existing.data() as Partial<UserProfile>;
     await updateDoc(userRef, {
       displayName: input.displayName,
       email: input.email,
-      photoURL: input.photoURL ?? '',
+      photoURL,
       role: current.role ?? role,
+      lastActiveAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
     return;
@@ -45,18 +62,34 @@ export const createOrUpdateUserProfile = async (input: {
     uid: input.uid,
     displayName: input.displayName,
     email: input.email,
-    photoURL: input.photoURL ?? '',
+    photoURL,
     role,
+    groupIds: [],
+    lastActiveAt: serverTimestamp(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 };
 
-export const subscribeToUsers = (cb: (users: UserProfile[]) => void) => {
-  return onSnapshot(query(collection(db, 'users'), orderBy('displayName', 'asc')), (snapshot) => {
-    cb(snapshot.docs.map((d) => mapDoc<UserProfile>(d.id, d.data())));
+export const touchUserActivity = async (uid: string) => {
+  await updateDoc(doc(db, 'users', uid), {
+    lastActiveAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
   });
 };
+
+export const updateOwnProfile = async (uid: string, payload: { displayName: string; photoURL: string }) => {
+  await updateDoc(doc(db, 'users', uid), {
+    displayName: payload.displayName,
+    photoURL: payload.photoURL,
+    updatedAt: serverTimestamp()
+  });
+};
+
+export const subscribeToUsers = (cb: (users: UserProfile[]) => void) =>
+  onSnapshot(query(collection(db, 'users'), orderBy('displayName', 'asc')), (snapshot) => {
+    cb(snapshot.docs.map((d) => mapDoc<UserProfile>(d.id, d.data())));
+  });
 
 export const subscribeToStatusesByDate = (date: string, cb: (statuses: StatusDoc[]) => void) => {
   const q = query(collection(db, 'statuses'), where('date', '==', date), orderBy('updatedAt', 'desc'));
@@ -71,9 +104,8 @@ export const upsertStatus = async (payload: {
   note: string;
 }) => {
   const id = `${payload.uid}_${payload.date.split('-').join('_')}`;
-  const ref = doc(db, 'statuses', id);
   await setDoc(
-    ref,
+    doc(db, 'statuses', id),
     {
       ...payload,
       updatedAt: serverTimestamp()
@@ -90,16 +122,13 @@ export const subscribeToHandovers = (
   if (filters.state && filters.state !== 'open') constraints.push(where('status', '==', filters.state));
   if (filters.priority && filters.priority !== 'all') constraints.push(where('priority', '==', filters.priority));
   if (filters.state === 'open') constraints.push(where('status', '==', 'open'));
-  const q = query(collection(db, 'handovers'), ...constraints);
-  return onSnapshot(q, (snapshot) => cb(snapshot.docs.map((d) => mapDoc<HandoverDoc>(d.id, d.data()))));
+  return onSnapshot(query(collection(db, 'handovers'), ...constraints), (snapshot) =>
+    cb(snapshot.docs.map((d) => mapDoc<HandoverDoc>(d.id, d.data())))
+  );
 };
 
 export const createHandover = async (payload: Omit<HandoverDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
-  await addDoc(collection(db, 'handovers'), {
-    ...payload,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
+  await addDoc(collection(db, 'handovers'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 };
 
 export const updateHandover = async (id: string, payload: Partial<HandoverDoc>) => {
@@ -109,8 +138,9 @@ export const updateHandover = async (id: string, payload: Partial<HandoverDoc>) 
 export const subscribeToAnnouncements = (publishedOnly: boolean, cb: (items: AnnouncementDoc[]) => void) => {
   const constraints: QueryConstraint[] = [orderBy('updatedAt', 'desc')];
   if (publishedOnly) constraints.push(where('published', '==', true));
-  const q = query(collection(db, 'announcements'), ...constraints);
-  return onSnapshot(q, (snapshot) => cb(snapshot.docs.map((d) => mapDoc<AnnouncementDoc>(d.id, d.data()))));
+  return onSnapshot(query(collection(db, 'announcements'), ...constraints), (snapshot) =>
+    cb(snapshot.docs.map((d) => mapDoc<AnnouncementDoc>(d.id, d.data())))
+  );
 };
 
 export const createAnnouncement = async (payload: Omit<AnnouncementDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -137,15 +167,64 @@ export const createLink = async (payload: Omit<LinkDoc, 'id' | 'createdAt' | 'up
   await addDoc(collection(db, 'links'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 };
 
-export const updateLink = async (id: string, payload: Partial<LinkDoc>) => {
-  await updateDoc(doc(db, 'links', id), { ...payload, updatedAt: serverTimestamp() });
-};
-
-export const deleteLink = async (id: string) => {
-  await setDoc(doc(db, 'links', id), { visible: false, updatedAt: serverTimestamp() }, { merge: true });
-};
-
 export const getOpenHandoverCount = async () => {
   const snapshot = await getDocs(query(collection(db, 'handovers'), where('status', '==', 'open')));
   return snapshot.size;
+};
+
+export const subscribeToGroups = (cb: (groups: GroupDoc[]) => void) =>
+  onSnapshot(query(collection(db, 'groups'), orderBy('name', 'asc')), (snapshot) => {
+    cb(snapshot.docs.map((d) => mapDoc<GroupDoc>(d.id, d.data())));
+  });
+
+export const createGroup = async (payload: {
+  name: string;
+  createdByUid: string;
+  createdByName: string;
+}) => {
+  const groupRef = await addDoc(collection(db, 'groups'), {
+    name: payload.name,
+    createdByUid: payload.createdByUid,
+    createdByName: payload.createdByName,
+    adminUids: [payload.createdByUid],
+    memberUids: [payload.createdByUid],
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+
+  await updateDoc(doc(db, 'users', payload.createdByUid), {
+    groupIds: arrayUnion(groupRef.id),
+    updatedAt: serverTimestamp()
+  });
+};
+
+export const addUserToGroup = async (groupId: string, uid: string) => {
+  await updateDoc(doc(db, 'groups', groupId), {
+    memberUids: arrayUnion(uid),
+    updatedAt: serverTimestamp()
+  });
+  await updateDoc(doc(db, 'users', uid), {
+    groupIds: arrayUnion(groupId),
+    updatedAt: serverTimestamp()
+  });
+};
+
+export const removeUserFromGroup = async (groupId: string, uid: string) => {
+  await updateDoc(doc(db, 'groups', groupId), {
+    memberUids: arrayRemove(uid),
+    adminUids: arrayRemove(uid),
+    updatedAt: serverTimestamp()
+  });
+  await updateDoc(doc(db, 'users', uid), {
+    groupIds: arrayRemove(groupId),
+    updatedAt: serverTimestamp()
+  });
+};
+
+export const promoteGroupAdmin = async (groupId: string, uid: string) => {
+  await updateDoc(doc(db, 'groups', groupId), {
+    adminUids: arrayUnion(uid),
+    memberUids: arrayUnion(uid),
+    updatedAt: serverTimestamp()
+  });
 };

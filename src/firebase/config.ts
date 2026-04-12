@@ -7,4 +7,4 @@ export const firebaseConfig = {
   appId: '1:501968120895:web:f4c3423bcd984a74319c8a'
 };
 
-export const ADMIN_EMAIL_ALLOWLIST = ['admin@teamdesk.local'];
+export const ADMIN_EMAIL_ALLOWLIST = ['irajet.ramadani@gmail.com', 'admin@teamdesk.local'];

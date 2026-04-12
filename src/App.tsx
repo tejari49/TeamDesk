@@ -3,6 +3,7 @@ import { Layout } from './components/Layout';
 import { RequireAuth } from './components/RequireAuth';
 import { useAuth } from './contexts/AuthContext';
 import { AdminPage } from './pages/AdminPage';
+import { GroupsPage } from './pages/GroupsPage';
 import { HandoversPage } from './pages/HandoversPage';
 import { LinksPage } from './pages/LinksPage';
 import { LoginPage } from './pages/LoginPage';
@@ -23,6 +24,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<TodayPage />} />
+        <Route path="/groups" element={<GroupsPage />} />
         <Route path="/handovers" element={<HandoversPage />} />
         <Route path="/team" element={<TeamPage />} />
         <Route path="/links" element={<LinksPage />} />

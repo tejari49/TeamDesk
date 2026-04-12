@@ -11,6 +11,8 @@ export interface UserProfile {
   email: string;
   photoURL?: string;
   role: UserRole;
+  groupIds?: string[];
+  lastActiveAt?: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -58,6 +60,17 @@ export interface LinkDoc {
   category: string;
   sortOrder: number;
   visible: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface GroupDoc {
+  id: string;
+  name: string;
+  createdByUid: string;
+  createdByName: string;
+  adminUids: string[];
+  memberUids: string[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

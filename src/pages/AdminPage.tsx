@@ -1,19 +1,21 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { createAnnouncement, subscribeToAnnouncements, subscribeToUsers, updateAnnouncement } from '../firebase/api';
+import { createAnnouncement, subscribeToAnnouncements, subscribeToGroups, subscribeToUsers, updateAnnouncement } from '../firebase/api';
 import { useAuth } from '../contexts/AuthContext';
-import type { AnnouncementDoc, UserProfile } from '../types';
+import type { AnnouncementDoc, GroupDoc, UserProfile } from '../types';
 
 export const AdminPage = () => {
   const { user, profile } = useAuth();
   const [announcements, setAnnouncements] = useState<AnnouncementDoc[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => subscribeToAnnouncements(false, setAnnouncements), []);
   useEffect(() => subscribeToUsers(setUsers), []);
+  useEffect(() => subscribeToGroups(setGroups), []);
 
-  if (profile?.role !== 'admin') return <p>Not authorized.</p>;
+  if (profile?.role !== 'admin') return <p>Nicht berechtigt.</p>;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -31,12 +33,13 @@ export const AdminPage = () => {
 
   return (
     <div className="grid-2">
-      <section className="card">
-        <h2>Manage announcements</h2>
+      <section className="card bubble">
+        <h2>Master Admin Panel</h2>
+        <p>Du bist als globaler Admin eingeloggt und siehst alle Nutzer + Gruppen.</p>
         <form className="stack" onSubmit={submit}>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" required />
-          <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" required />
-          <button className="btn">Publish</button>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ankündigung Titel" required />
+          <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Nachricht" required />
+          <button className="btn">Publizieren</button>
         </form>
         <ul className="list">
           {announcements.map((item) => (
@@ -45,31 +48,45 @@ export const AdminPage = () => {
                 <strong>{item.title}</strong>
                 <p>{item.message}</p>
               </div>
-              <button
-                className="btn btn-secondary"
-                onClick={() => void updateAnnouncement(item.id, { published: !item.published })}
-              >
-                {item.published ? 'Archive' : 'Publish'}
+              <button className="btn btn-secondary" onClick={() => void updateAnnouncement(item.id, { published: !item.published })}>
+                {item.published ? 'Archivieren' : 'Veröffentlichen'}
               </button>
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="card">
-        <h2>Team roles</h2>
+      <section className="card bubble">
+        <h2>Alle Nutzer</h2>
         <ul className="list">
           {users.map((entry) => (
             <li key={entry.uid}>
-              <div>
-                <strong>{entry.displayName}</strong>
-                <p>{entry.email}</p>
+              <div className="profile-line">
+                <img src={entry.photoURL} alt={entry.displayName} className="avatar" />
+                <div>
+                  <strong>{entry.displayName}</strong>
+                  <p>{entry.email}</p>
+                </div>
               </div>
               <span className="pill">{entry.role}</span>
             </li>
           ))}
         </ul>
-        <p className="hint">Seed: add links and one announcement to avoid empty first-run screens.</p>
+      </section>
+
+      <section className="card bubble full">
+        <h2>Gruppenübersicht</h2>
+        <ul className="list">
+          {groups.map((group) => (
+            <li key={group.id}>
+              <div>
+                <strong>{group.name}</strong>
+                <p>Admins: {group.adminUids.length} · Mitglieder: {group.memberUids.length}</p>
+              </div>
+              <small>{group.createdByName}</small>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );

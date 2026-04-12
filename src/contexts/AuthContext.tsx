@@ -1,8 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, signInAnonymously, signInWithPopup, signOut, type User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { auth, googleProvider, db } from '../firebase/client';
-import { createOrUpdateUserProfile } from '../firebase/api';
+import { auth, db, googleProvider } from '../firebase/client';
+import { createOrUpdateUserProfile, touchUserActivity } from '../firebase/api';
 import type { UserProfile } from '../types';
 
 interface AuthContextValue {
@@ -16,7 +16,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,21 +43,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
     const unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      if (!snap.exists()) {
-        setProfile({
-          uid: user.uid,
-          displayName: user.displayName ?? 'Anonymous',
-          email: user.email ?? 'anon@local',
-          photoURL: user.photoURL ?? undefined,
-          role: 'member',
-          createdAt: undefined as never,
-          updatedAt: undefined as never
-        });
-        return;
-      }
+      if (!snap.exists()) return;
       setProfile(snap.data() as UserProfile);
     });
     return unsubProfile;
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    void touchUserActivity(user.uid);
+    const timer = window.setInterval(() => {
+      void touchUserActivity(user.uid);
+    }, 60_000);
+    return () => window.clearInterval(timer);
   }, [user]);
 
   const value = useMemo(
@@ -65,15 +63,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       user,
       profile,
       loading,
-      signInWithGoogle: async () => {
-        await signInWithPopup(auth, googleProvider);
-      },
-      signInDevAnonymous: async () => {
-        await signInAnonymously(auth);
-      },
-      logout: async () => {
-        await signOut(auth);
-      }
+      signInWithGoogle: async () => signInWithPopup(auth, googleProvider).then(() => undefined),
+      signInDevAnonymous: async () => signInAnonymously(auth).then(() => undefined),
+      logout: async () => signOut(auth).then(() => undefined)
     }),
     [loading, profile, user]
   );

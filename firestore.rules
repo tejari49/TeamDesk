@@ -5,22 +5,34 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
+    function isMasterAdmin() {
       return isSignedIn() &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isGroupAdmin(groupId) {
+      return isSignedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.adminUids;
     }
 
     match /users/{uid} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.auth.uid == uid;
-      allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow update: if isSignedIn() && (request.auth.uid == uid || isMasterAdmin());
+    }
+
+    match /groups/{groupId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if isMasterAdmin() || isGroupAdmin(groupId);
+      allow delete: if isMasterAdmin();
     }
 
     match /statuses/{statusId} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn() &&
-        (request.resource.data.uid == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
+        (request.resource.data.uid == request.auth.uid || isMasterAdmin());
+      allow delete: if isMasterAdmin();
     }
 
     match /handovers/{handoverId} {
@@ -29,19 +41,19 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         resource.data.createdByUid == request.auth.uid ||
         request.resource.data.createdByUid == request.auth.uid ||
-        isAdmin()
+        isMasterAdmin()
       );
-      allow delete: if isAdmin();
+      allow delete: if isMasterAdmin();
     }
 
     match /announcements/{announcementId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isMasterAdmin();
     }
 
     match /links/{linkId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isMasterAdmin();
     }
   }
 }

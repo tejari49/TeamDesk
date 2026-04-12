@@ -60,9 +60,34 @@ export const ChatPage = () => {
   const send = async () => {
     if (!text.trim() || !user) return;
     if (mode === 'group' && activeGroup) {
+      const optimistic = {
+        id: `tmp-${Date.now()}`,
+        groupId: activeGroup.id,
+        senderUid: user.uid,
+        senderName: user.displayName ?? user.email ?? 'User',
+        content: text,
+        quotedText: quote,
+        reactions: {},
+        createdAt: { toDate: () => new Date() } as never,
+        updatedAt: { toDate: () => new Date() } as never
+      };
+      setGroupMessages((prev) => [...prev, optimistic as never]);
       await sendGroupMessage(activeGroup.id, user.uid, user.displayName ?? user.email ?? 'User', text, quote);
     }
     if (mode === 'direct' && activeContactUid && conversationId) {
+      const optimistic = {
+        id: `tmp-${Date.now()}`,
+        conversationId,
+        senderUid: user.uid,
+        receiverUid: activeContactUid,
+        senderName: user.displayName ?? user.email ?? 'User',
+        content: text,
+        quotedText: quote,
+        reactions: {},
+        createdAt: { toDate: () => new Date() } as never,
+        updatedAt: { toDate: () => new Date() } as never
+      };
+      setDirectMessages((prev) => [...prev, optimistic as never]);
       await sendDirectMessage(conversationId, user.uid, activeContactUid, user.displayName ?? user.email ?? 'User', text, quote);
     }
     setText('');

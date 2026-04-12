@@ -1,10 +1,12 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { createLink, subscribeToLinks } from '../firebase/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { LinkDoc } from '../types';
 
 export const LinksPage = () => {
   const { profile } = useAuth();
+  const { lang } = useLanguage();
   const isAdmin = profile?.role === 'admin';
   const [links, setLinks] = useState<LinkDoc[]>([]);
   const [title, setTitle] = useState('');
@@ -34,8 +36,8 @@ export const LinksPage = () => {
   return (
     <div className="grid-2">
       <section className="card bubble">
-        <h2>Quick links</h2>
-        {Object.keys(grouped).length === 0 && <p>No links yet. Add the first from Admin.</p>}
+        <h2>{lang === 'de' ? 'Schnelllinks' : 'Quick links'}</h2>
+        {Object.keys(grouped).length === 0 && <p>{lang === 'de' ? 'Noch keine Links vorhanden. Als Admin den ersten Link anlegen.' : 'No links yet. Add the first from Admin.'}</p>}
         {Object.entries(grouped).map(([group, items]) => (
           <div key={group}>
             <h3>{group}</h3>
@@ -54,7 +56,7 @@ export const LinksPage = () => {
         {hovered && (
           <div className="link-preview card">
             <strong>{hovered.title}</strong>
-            <p>{hovered.description || 'Keine Beschreibung vorhanden.'}</p>
+            <p>{hovered.description || (lang === 'de' ? 'Keine Beschreibung vorhanden.' : 'No description available.')}</p>
             <small>{hovered.url}</small>
           </div>
         )}
@@ -62,13 +64,13 @@ export const LinksPage = () => {
 
       {isAdmin && (
         <section className="card bubble">
-          <h2>Add link</h2>
+          <h2>{lang === 'de' ? 'Link hinzufügen' : 'Add link'}</h2>
           <form className="stack" onSubmit={add}>
             <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
             <input placeholder="https://..." type="url" value={url} onChange={(e) => setUrl(e.target.value)} required />
             <input placeholder="Category" value={category} onChange={(e) => setCategory(e.target.value)} required />
-            <input placeholder="Kurzbeschreibung (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
-            <button className="btn">Save</button>
+            <input placeholder={lang === 'de' ? 'Kurzbeschreibung (optional)' : 'Short description (optional)'} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <button className="btn">{lang === 'de' ? 'Speichern' : 'Save'}</button>
           </form>
         </section>
       )}

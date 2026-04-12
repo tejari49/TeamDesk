@@ -24,11 +24,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (nextUser) => {
       setUser(nextUser);
-      if (nextUser?.email) {
+      if (nextUser) {
+        const fallbackEmail = nextUser.email ?? `${nextUser.uid}@anon.teamdesk.local`;
         await createOrUpdateUserProfile({
           uid: nextUser.uid,
-          email: nextUser.email,
-          displayName: nextUser.displayName ?? nextUser.email,
+          email: fallbackEmail,
+          displayName: nextUser.displayName ?? fallbackEmail,
           photoURL: nextUser.photoURL ?? undefined
         });
       }

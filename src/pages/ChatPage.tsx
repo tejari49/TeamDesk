@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import {
   canEditMessage,
   conversationIdFromUids,
@@ -17,6 +17,8 @@ import {
 } from '../firebase/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { DirectMessageDoc, GroupDoc, GroupMessageDoc, UserProfile } from '../types';
+
+const localKey = (kind: 'group' | 'direct', id: string) => `teamdesk:${kind}:${id}`;
 
 export const ChatPage = () => {
   const { user, profile } = useAuth();
@@ -41,7 +43,13 @@ export const ChatPage = () => {
 
   useEffect(() => {
     if (!activeGroup) return;
-    return subscribeToGroupMessages(activeGroup.id, setGroupMessages);
+    const key = localKey('group', activeGroup.id);
+    const cached = localStorage.getItem(key);
+    if (cached) setGroupMessages(JSON.parse(cached));
+    return subscribeToGroupMessages(activeGroup.id, (items) => {
+      setGroupMessages(items);
+      localStorage.setItem(key, JSON.stringify(items));
+    });
   }, [activeGroup]);
 
   const conversationId = useMemo(() => {
@@ -51,7 +59,13 @@ export const ChatPage = () => {
 
   useEffect(() => {
     if (!conversationId) return setDirectMessages([]);
-    return subscribeToDirectMessages(conversationId, setDirectMessages);
+    const key = localKey('direct', conversationId);
+    const cached = localStorage.getItem(key);
+    if (cached) setDirectMessages(JSON.parse(cached));
+    return subscribeToDirectMessages(conversationId, (items) => {
+      setDirectMessages(items);
+      localStorage.setItem(key, JSON.stringify(items));
+    });
   }, [conversationId]);
 
   const mode: 'group' | 'direct' = activeContactUid ? 'direct' : 'group';
@@ -59,39 +73,50 @@ export const ChatPage = () => {
 
   const send = async () => {
     if (!text.trim() || !user) return;
-    if (mode === 'group' && activeGroup) {
-      const optimistic = {
-        id: `tmp-${Date.now()}`,
-        groupId: activeGroup.id,
-        senderUid: user.uid,
-        senderName: user.displayName ?? user.email ?? 'User',
-        content: text,
-        quotedText: quote,
-        reactions: {},
-        createdAt: { toDate: () => new Date() } as never,
-        updatedAt: { toDate: () => new Date() } as never
-      };
-      setGroupMessages((prev) => [...prev, optimistic as never]);
-      await sendGroupMessage(activeGroup.id, user.uid, user.displayName ?? user.email ?? 'User', text, quote);
+    try {
+      if (mode === 'group' && activeGroup) {
+        const optimistic = {
+          id: `tmp-${Date.now()}`,
+          groupId: activeGroup.id,
+          senderUid: user.uid,
+          senderName: user.displayName ?? user.email ?? 'User',
+          content: text,
+          quotedText: quote,
+          reactions: {},
+          createdAt: { toDate: () => new Date() } as never,
+          updatedAt: { toDate: () => new Date() } as never
+        };
+        setGroupMessages((prev) => [...prev, optimistic as never]);
+        await sendGroupMessage(activeGroup.id, user.uid, user.displayName ?? user.email ?? 'User', text, quote);
+      }
+      if (mode === 'direct' && activeContactUid && conversationId) {
+        const optimistic = {
+          id: `tmp-${Date.now()}`,
+          conversationId,
+          senderUid: user.uid,
+          receiverUid: activeContactUid,
+          senderName: user.displayName ?? user.email ?? 'User',
+          content: text,
+          quotedText: quote,
+          reactions: {},
+          createdAt: { toDate: () => new Date() } as never,
+          updatedAt: { toDate: () => new Date() } as never
+        };
+        setDirectMessages((prev) => [...prev, optimistic as never]);
+        await sendDirectMessage(conversationId, user.uid, activeContactUid, user.displayName ?? user.email ?? 'User', text, quote);
+      }
+      setText('');
+      setQuote('');
+    } catch (error) {
+      alert(`Speichern fehlgeschlagen: ${(error as Error).message}`);
     }
-    if (mode === 'direct' && activeContactUid && conversationId) {
-      const optimistic = {
-        id: `tmp-${Date.now()}`,
-        conversationId,
-        senderUid: user.uid,
-        receiverUid: activeContactUid,
-        senderName: user.displayName ?? user.email ?? 'User',
-        content: text,
-        quotedText: quote,
-        reactions: {},
-        createdAt: { toDate: () => new Date() } as never,
-        updatedAt: { toDate: () => new Date() } as never
-      };
-      setDirectMessages((prev) => [...prev, optimistic as never]);
-      await sendDirectMessage(conversationId, user.uid, activeContactUid, user.displayName ?? user.email ?? 'User', text, quote);
+  };
+
+  const onEnterSend = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void send();
     }
-    setText('');
-    setQuote('');
   };
 
   return (
@@ -118,7 +143,8 @@ export const ChatPage = () => {
         <div className="chat-messages">
           {messages.map((m) => {
             const own = m.senderUid === user?.uid;
-            const editable = own && canEditMessage(m.createdAt);
+            const createdAtSafe = (m as { createdAt?: { toDate?: () => Date } }).createdAt;
+            const editable = own && typeof createdAtSafe?.toDate === 'function' ? canEditMessage(createdAtSafe as never) : false;
             return (
               <div key={m.id} className={`msg ${own ? 'own' : ''}`}>
                 <div>
@@ -148,7 +174,7 @@ export const ChatPage = () => {
         </div>
         {quote && <p className="quoted">Antwort auf: {quote}</p>}
         <div className="chat-input">
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Nachricht schreiben..." />
+          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onEnterSend} placeholder="Nachricht schreiben..." />
           <button className="btn" onClick={() => void send()}>Senden</button>
         </div>
       </section>

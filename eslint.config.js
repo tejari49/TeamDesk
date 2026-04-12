@@ -19,7 +19,10 @@ export default [
         process: 'readonly',
         console: 'readonly',
         setInterval: 'readonly',
-        clearInterval: 'readonly'
+        clearInterval: 'readonly',
+        localStorage: 'readonly',
+        alert: 'readonly',
+        HTMLInputElement: 'readonly',
       }
     },
     plugins: {

@@ -70,7 +70,7 @@ export const upsertStatus = async (payload: {
   status: TeamStatus;
   note: string;
 }) => {
-  const id = `${payload.uid}_${payload.date.replaceAll('-', '_')}`;
+  const id = `${payload.uid}_${payload.date.split('-').join('_')}`;
   const ref = doc(db, 'statuses', id);
   await setDoc(
     ref,

@@ -12,6 +12,7 @@ export interface UserProfile {
   email: string;
   photoURL?: string;
   role: UserRole;
+  language?: 'de' | 'en';
   groupIds?: string[];
   lastActiveAt?: Timestamp;
   createdAt: Timestamp;

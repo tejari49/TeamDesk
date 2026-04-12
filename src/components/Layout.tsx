@@ -1,20 +1,22 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-
-const navItems = [
-  { to: '/', label: 'Heute' },
-  { to: '/groups', label: 'Gruppen' },
-  { to: '/handovers', label: 'Handovers' },
-  { to: '/team', label: 'Team' },
-  { to: '/links', label: 'Links' },
-  { to: '/settings', label: 'Einstellungen' }
-];
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const Layout = () => {
   const { logout, profile } = useAuth();
+  const { t } = useLanguage();
   const isAdmin = profile?.role === 'admin';
 
-  const items = [...navItems, ...(isAdmin ? [{ to: '/admin', label: 'Master Admin' }] : [])];
+  const items = [
+    { to: '/', label: t('today') },
+    { to: '/groups', label: t('groups') },
+    { to: '/chat', label: t('chat') },
+    { to: '/handovers', label: t('handovers') },
+    { to: '/team', label: t('team') },
+    { to: '/links', label: t('links') },
+    { to: '/settings', label: t('settings') },
+    ...(isAdmin ? [{ to: '/admin', label: t('admin') }] : [])
+  ];
 
   return (
     <div className="app-shell">
@@ -35,7 +37,7 @@ export const Layout = () => {
       <main className="content">
         <Outlet />
         <div className="release-footer">
-          <NavLink to="/releases" className="release-link">Release Verlauf</NavLink>
+          <NavLink to="/releases" className="release-link">{t('releases')}</NavLink>
         </div>
       </main>
       <nav className="bottom-nav">

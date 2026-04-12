@@ -1,10 +1,12 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { createAnnouncement, subscribeToAnnouncements, subscribeToGroups, subscribeToUsers, updateAnnouncement } from '../firebase/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { AnnouncementDoc, GroupDoc, UserProfile } from '../types';
 
 export const AdminPage = () => {
   const { user, profile } = useAuth();
+  const { t } = useLanguage();
   const [announcements, setAnnouncements] = useState<AnnouncementDoc[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [groups, setGroups] = useState<GroupDoc[]>([]);
@@ -18,7 +20,7 @@ export const AdminPage = () => {
     return subscribeToGroups(user.uid, profile?.role === 'admin', setGroups);
   }, [profile?.role, user]);
 
-  if (profile?.role !== 'admin') return <p>Nicht berechtigt.</p>;
+  if (profile?.role !== 'admin') return <p>{t('notAuthorized')}</p>;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();

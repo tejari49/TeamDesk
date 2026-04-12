@@ -76,8 +76,9 @@ export const createOrUpdateUserProfile = async (input: {
       displayName: input.displayName,
       email: input.email,
       photoURL,
-      role: current.role ?? role,
+      role: role === 'admin' ? 'admin' : current.role ?? role,
       userCode: current.userCode ?? makeUserCode(input.uid),
+      language: current.language ?? 'de',
       lastActiveAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -91,6 +92,7 @@ export const createOrUpdateUserProfile = async (input: {
     email: input.email,
     photoURL,
     role,
+    language: 'de',
     groupIds: [],
     lastActiveAt: serverTimestamp(),
     createdAt: serverTimestamp(),
@@ -103,6 +105,15 @@ export const touchUserActivity = async (uid: string) => {
     lastActiveAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
+};
+
+
+export const updateUserLanguage = async (uid: string, language: 'de' | 'en') => {
+  await updateDoc(doc(db, 'users', uid), {
+    language,
+    updatedAt: serverTimestamp()
+  });
+  await createReleaseLog({ category: 'change', message: `Sprache geändert: ${language}`, actorUid: uid, actorName: uid });
 };
 
 export const updateOwnProfile = async (uid: string, payload: { displayName: string; photoURL: string }) => {

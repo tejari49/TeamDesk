@@ -91,9 +91,10 @@ input, select, textarea { width: 100%; border: 1px solid #a7f3d0; border-radius:
 .chat-item.active { background: #d1fae5; }
 .chat-main { display: grid; grid-template-rows: auto 1fr auto; min-height: 60vh; }
 .chat-header { padding-bottom: .5rem; border-bottom: 1px solid #d1fae5; }
-.chat-messages { overflow: auto; padding: .75rem 0; display: grid; gap: .5rem; }
-.msg { background: #f0fdf4; border: 1px solid #d1fae5; border-radius: 12px; padding: .5rem .7rem; max-width: 75%; }
-.msg.own { margin-left: auto; background: #ccfbf1; }
+.chat-messages { overflow: auto; padding: .75rem 0; display: grid; gap: .35rem; align-content: start; }
+.msg { position: relative; background: #f0fdf4; border: 1px solid #d1fae5; border-radius: 14px; padding: .35rem .55rem; max-width: 58%; width: fit-content; }
+.msg.own { margin-left: auto; background: #ccfbf1; border-bottom-right-radius: 4px; }
+.msg:not(.own) { border-bottom-left-radius: 4px; }
 .chat-input { display: grid; grid-template-columns: 1fr auto; gap: .5rem; }
 
 .icon-btn { border: 1px solid #a7f3d0; background: #fff; border-radius: 8px; font-size: .8rem; padding: .1rem .35rem; cursor: pointer; }

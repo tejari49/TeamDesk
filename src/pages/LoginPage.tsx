@@ -4,12 +4,13 @@ import { useAuth } from '../contexts/AuthContext';
 export const LoginPage = () => {
   const { signInWithGoogle, signInDevAnonymous } = useAuth();
   const [error, setError] = useState('');
+  const isLocalDev = window.location.hostname === 'localhost';
 
   const handleLogin = async () => {
     try {
       await signInWithGoogle();
     } catch {
-      setError('Google sign-in failed. Use development sign-in if needed.');
+      setError('Google Sign-in fehlgeschlagen.');
     }
   };
 
@@ -17,13 +18,15 @@ export const LoginPage = () => {
     <div className="auth-page">
       <div className="card auth-card">
         <h1>TeamDesk</h1>
-        <p>Your internal dashboard for today.</p>
+        <p>Internes Tages-Dashboard.</p>
         <button className="btn" onClick={() => void handleLogin()}>
-          Sign in with Google
+          Mit Google anmelden
         </button>
-        <button className="btn btn-secondary" onClick={() => void signInDevAnonymous()}>
-          Dev anonymous sign-in
-        </button>
+        {isLocalDev && (
+          <button className="btn btn-secondary" onClick={() => void signInDevAnonymous()}>
+            Dev Anonymous Sign-in
+          </button>
+        )}
         {error && <p className="error">{error}</p>}
       </div>
     </div>

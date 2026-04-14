@@ -245,7 +245,18 @@ export const subscribeToLinks = (visibleOnly: boolean, cb: (items: LinkDoc[]) =>
 export const createLink = async (payload: Omit<LinkDoc, 'id' | 'createdAt' | 'updatedAt'>) => {
   ensureSafe(payload.title);
   ensureSafe(payload.description || '');
-  await addDoc(collection(db, 'links'), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  const normalizedUrl = payload.url.startsWith('http://') || payload.url.startsWith('https://')
+    ? payload.url
+    : `https://${payload.url}`;
+  await addDoc(collection(db, 'links'), {
+    ...payload,
+    title: payload.title.trim(),
+    category: payload.category.trim(),
+    description: payload.description?.trim() || '',
+    url: normalizedUrl.trim(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
 };
 
 export const getOpenHandoverCount = async () => {

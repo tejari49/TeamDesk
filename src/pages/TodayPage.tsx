@@ -14,6 +14,8 @@ export const TodayPage = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [openCount, setOpenCount] = useState(0);
+  const [showStatus, setShowStatus] = useState(true);
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
 
   useEffect(() => subscribeToStatusesByDate(todayIso(), setStatuses), []);
   useEffect(() => subscribeToAnnouncements(true, setAnnouncements), []);
@@ -32,27 +34,35 @@ export const TodayPage = () => {
 
   const onlineCount = useMemo(() => users.filter(online).length, [users]);
   const statusByUid = useMemo(() => new Map(statuses.map((s) => [s.uid, s])), [statuses]);
+  const membersWithStatus = useMemo(
+    () => [...users].sort((a, b) => Number(online(b)) - Number(online(a)) || a.displayName.localeCompare(b.displayName)),
+    [users]
+  );
 
   return (
     <div>
-      <h2>Guten Morgen, {user?.displayName ?? 'Kollege'} 👋</h2>
-      <div className="grid-3">
-        <section className="card bubble">
+      <header className="page-header">
+        <h2>Guten Morgen, {user?.displayName ?? 'Kollege'} 👋</h2>
+        <p className="hint">Dein Überblick für {new Date().toLocaleDateString('de-DE')}.</p>
+      </header>
+
+      <div className="grid-3 compact-grid">
+        <section className="card bubble stat-card">
           <h3>Mein Verknüpfungscode</h3>
           <p className="big-number">{profile?.userCode ?? '-'}</p>
           <small>Diesen Code teilst du mit Gruppenadmins.</small>
         </section>
 
-        <section className="card bubble">
+        <section className="card bubble stat-card">
           <h3>Online jetzt</h3>
           <p className="big-number">{onlineCount}</p>
           <small>{users.length} Nutzer in deinen Gruppen</small>
         </section>
-        <section className="card bubble">
+        <section className="card bubble stat-card">
           <h3>Offene Handovers</h3>
           <p className="big-number">{openCount}</p>
         </section>
-        <section className="card bubble">
+        <section className="card bubble stat-card">
           <h3>Meine Gruppen</h3>
           <p className="big-number">{myGroups.length}</p>
           <Link className="btn" to="/groups">Gruppen öffnen</Link>
@@ -60,34 +70,52 @@ export const TodayPage = () => {
       </div>
 
       <section className="card bubble">
-        <h3>Status heute (nur Gruppenmitglieder)</h3>
-        <ul className="list">
-          {users.map((member) => {
-            const statusItem = statusByUid.get(member.uid);
-            return (
-              <li key={member.uid}>
-                <div>
-                  <strong>{member.displayName}</strong>
-                  <p>{statusItem?.status ?? 'kein Status'}</p>
-                  {statusItem?.note && <p className="note-italic">{statusItem.note}</p>}
-                </div>
-                <small>{statusItem ? formatRelativeTime(statusItem.updatedAt) : ''}</small>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="section-head">
+          <h3>Status heute (nur Gruppenmitglieder)</h3>
+          <div className="inline">
+            <span className="pill">{onlineCount} online</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowStatus((prev) => !prev)}>{showStatus ? 'Einklappen' : 'Aufklappen'}</button>
+          </div>
+        </div>
+        {showStatus && (
+          <ul className="list">
+            {membersWithStatus.map((member) => {
+              const statusItem = statusByUid.get(member.uid);
+              return (
+                <li key={member.uid}>
+                  <div>
+                    <strong>{member.displayName}</strong> {online(member) && <span className="pill low">online</span>}
+                    <p>{statusItem?.status ?? 'kein Status'}</p>
+                    {statusItem?.note && <p className="note-italic">{statusItem.note}</p>}
+                  </div>
+                  <small>{statusItem ? formatRelativeTime(statusItem.updatedAt) : ''}</small>
+                </li>
+              );
+            })}
+            {membersWithStatus.length === 0 && <li className="list-empty">Noch keine Gruppenmitglieder gefunden.</li>}
+          </ul>
+        )}
       </section>
 
       <section className="card bubble">
-        <h3>Aktuelle Ankündigungen</h3>
-        <ul className="list">
-          {announcements.map((a) => (
-            <li key={a.id}>
-              <div><strong>{a.title}</strong><p>{a.message}</p></div>
-              <small>{formatRelativeTime(a.updatedAt)}</small>
-            </li>
-          ))}
-        </ul>
+        <div className="section-head">
+          <h3>Aktuelle Ankündigungen</h3>
+          <div className="inline">
+            <span className="pill">{announcements.length}</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowAnnouncements((prev) => !prev)}>{showAnnouncements ? 'Einklappen' : 'Aufklappen'}</button>
+          </div>
+        </div>
+        {showAnnouncements && (
+          <ul className="list">
+            {announcements.map((a) => (
+              <li key={a.id}>
+                <div><strong>{a.title}</strong><p>{a.message}</p></div>
+                <small>{formatRelativeTime(a.updatedAt)}</small>
+              </li>
+            ))}
+            {announcements.length === 0 && <li className="list-empty">Keine aktiven Ankündigungen.</li>}
+          </ul>
+        )}
       </section>
     </div>
   );

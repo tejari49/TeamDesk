@@ -43,6 +43,7 @@ export const ChatPage = () => {
 
   useEffect(() => {
     if (!activeGroup) return;
+    setGroupMessages([]);
     const key = localKey('group', activeGroup.id);
     const cached = localStorage.getItem(key);
     if (cached) setGroupMessages(JSON.parse(cached));
@@ -58,7 +59,8 @@ export const ChatPage = () => {
   }, [activeContactUid, user]);
 
   useEffect(() => {
-    if (!conversationId) return setDirectMessages([]);
+    setDirectMessages([]);
+    if (!conversationId) return;
     const key = localKey('direct', conversationId);
     const cached = localStorage.getItem(key);
     if (cached) setDirectMessages(JSON.parse(cached));
@@ -124,13 +126,13 @@ export const ChatPage = () => {
       <aside className="chat-sidebar">
         <h3>Gruppen</h3>
         {groups.map((g) => (
-          <button key={g.id} className={`chat-item ${activeGroup?.id === g.id ? 'active' : ''}`} onClick={() => { setActiveGroupId(g.id); setActiveContactUid(''); }}>
+          <button key={g.id} className={`chat-item ${activeGroup?.id === g.id ? 'active' : ''}`} onClick={() => { setActiveGroupId(g.id); setActiveContactUid(''); setText(''); setQuote(''); setMenuId(''); }}>
             #{g.name}
           </button>
         ))}
         <h3>Kontakte</h3>
         {contacts.filter((c) => c.uid !== user?.uid).map((c) => (
-          <button key={c.uid} className={`chat-item ${activeContactUid === c.uid ? 'active' : ''}`} onClick={() => setActiveContactUid(c.uid)}>
+          <button key={c.uid} className={`chat-item ${activeContactUid === c.uid ? 'active' : ''}`} onClick={() => { setActiveContactUid(c.uid); setText(''); setQuote(''); setMenuId(''); }}>
             {c.displayName}
           </button>
         ))}

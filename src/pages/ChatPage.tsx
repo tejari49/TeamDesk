@@ -143,6 +143,7 @@ export const ChatPage = () => {
           <strong>{mode === 'group' ? `#${activeGroup?.name ?? 'Gruppe'}` : contacts.find((c) => c.uid === activeContactUid)?.displayName}</strong>
         </div>
         <div className="chat-messages">
+          {messages.length === 0 && <p className="hint">Noch keine Nachrichten in diesem Chat.</p>}
           {messages.map((m) => {
             const own = m.senderUid === user?.uid;
             const createdAtSafe = (m as { createdAt?: { toDate?: () => Date } }).createdAt;

@@ -14,8 +14,7 @@ export const TodayPage = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [openCount, setOpenCount] = useState(0);
-  const [showStatus, setShowStatus] = useState(true);
-  const [showAnnouncements, setShowAnnouncements] = useState(false);
+  const [memberFilter, setMemberFilter] = useState<'all' | 'online' | 'offline' | 'withStatus'>('all');
 
   useEffect(() => subscribeToStatusesByDate(todayIso(), setStatuses), []);
   useEffect(() => subscribeToAnnouncements(true, setAnnouncements), []);
@@ -37,6 +36,18 @@ export const TodayPage = () => {
   const membersWithStatus = useMemo(
     () => [...users].sort((a, b) => Number(online(b)) - Number(online(a)) || a.displayName.localeCompare(b.displayName)),
     [users]
+  );
+  const filteredMembers = useMemo(
+    () =>
+      membersWithStatus.filter((member) => {
+        const isMemberOnline = online(member);
+        const hasStatus = !!statusByUid.get(member.uid)?.status;
+        if (memberFilter === 'online') return isMemberOnline;
+        if (memberFilter === 'offline') return !isMemberOnline;
+        if (memberFilter === 'withStatus') return hasStatus;
+        return true;
+      }),
+    [memberFilter, membersWithStatus, statusByUid]
   );
 
   return (
@@ -68,55 +79,59 @@ export const TodayPage = () => {
           <Link className="btn" to="/groups">Gruppen öffnen</Link>
         </section>
       </div>
+      <section className="card quick-actions">
+        <h3>Schnellaktionen</h3>
+        <div className="inline">
+          <Link className="btn" to="/team">Status aktualisieren</Link>
+          <Link className="btn btn-secondary" to="/chat">Neue Nachricht</Link>
+          <Link className="btn" to="/handovers">Handover anlegen</Link>
+        </div>
+      </section>
 
-      <section className="card bubble">
-        <div className="section-head">
+      <details className="card detail-card" open>
+        <summary className="section-head detail-summary">
           <h3>Status heute (nur Gruppenmitglieder)</h3>
-          <div className="inline">
-            <span className="pill">{onlineCount} online</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowStatus((prev) => !prev)}>{showStatus ? 'Einklappen' : 'Aufklappen'}</button>
-          </div>
+          <span className="pill">{onlineCount} online</span>
+        </summary>
+        <div className="inline">
+          <button type="button" className={`chip ${memberFilter === 'all' ? 'active' : ''}`} onClick={() => setMemberFilter('all')}>Alle</button>
+          <button type="button" className={`chip ${memberFilter === 'online' ? 'active' : ''}`} onClick={() => setMemberFilter('online')}>Online</button>
+          <button type="button" className={`chip ${memberFilter === 'offline' ? 'active' : ''}`} onClick={() => setMemberFilter('offline')}>Offline</button>
+          <button type="button" className={`chip ${memberFilter === 'withStatus' ? 'active' : ''}`} onClick={() => setMemberFilter('withStatus')}>Mit Status</button>
         </div>
-        {showStatus && (
-          <ul className="list">
-            {membersWithStatus.map((member) => {
-              const statusItem = statusByUid.get(member.uid);
-              return (
-                <li key={member.uid}>
-                  <div>
-                    <strong>{member.displayName}</strong> {online(member) && <span className="pill low">online</span>}
-                    <p>{statusItem?.status ?? 'kein Status'}</p>
-                    {statusItem?.note && <p className="note-italic">{statusItem.note}</p>}
-                  </div>
-                  <small>{statusItem ? formatRelativeTime(statusItem.updatedAt) : ''}</small>
-                </li>
-              );
-            })}
-            {membersWithStatus.length === 0 && <li className="list-empty">Noch keine Gruppenmitglieder gefunden.</li>}
-          </ul>
-        )}
-      </section>
-
-      <section className="card bubble">
-        <div className="section-head">
-          <h3>Aktuelle Ankündigungen</h3>
-          <div className="inline">
-            <span className="pill">{announcements.length}</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowAnnouncements((prev) => !prev)}>{showAnnouncements ? 'Einklappen' : 'Aufklappen'}</button>
-          </div>
-        </div>
-        {showAnnouncements && (
-          <ul className="list">
-            {announcements.map((a) => (
-              <li key={a.id}>
-                <div><strong>{a.title}</strong><p>{a.message}</p></div>
-                <small>{formatRelativeTime(a.updatedAt)}</small>
+        <ul className="list">
+          {filteredMembers.map((member) => {
+            const statusItem = statusByUid.get(member.uid);
+            return (
+              <li key={member.uid}>
+                <div>
+                  <strong>{member.displayName}</strong> {online(member) && <span className="pill low">online</span>}
+                  <p>{statusItem?.status ?? 'kein Status'}</p>
+                  {statusItem?.note && <p className="note-italic">{statusItem.note}</p>}
+                </div>
+                <small>{statusItem ? formatRelativeTime(statusItem.updatedAt) : ''}</small>
               </li>
-            ))}
-            {announcements.length === 0 && <li className="list-empty">Keine aktiven Ankündigungen.</li>}
-          </ul>
-        )}
-      </section>
+            );
+          })}
+          {filteredMembers.length === 0 && <li className="list-empty">Keine Einträge für den gewählten Filter.</li>}
+        </ul>
+      </details>
+
+      <details className="card detail-card">
+        <summary className="section-head detail-summary">
+          <h3>Aktuelle Ankündigungen</h3>
+          <span className="pill">{announcements.length}</span>
+        </summary>
+        <ul className="list">
+          {announcements.map((a) => (
+            <li key={a.id}>
+              <div><strong>{a.title}</strong><p>{a.message}</p></div>
+              <small>{formatRelativeTime(a.updatedAt)}</small>
+            </li>
+          ))}
+          {announcements.length === 0 && <li className="list-empty">Keine aktiven Ankündigungen.</li>}
+        </ul>
+      </details>
     </div>
   );
 };

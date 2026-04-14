@@ -1,24 +1,14 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   addUserToGroupByCode,
-  canEditMessage,
-  conversationIdFromUids,
   createGroup,
-  deleteDirectMessage,
-  deleteGroupMessage,
   promoteGroupAdmin,
   removeUserFromGroup,
-  sendDirectMessage,
-  sendGroupMessage,
-  subscribeToDirectMessages,
-  subscribeToGroupMessages,
   subscribeToGroups,
-  subscribeUsersByUids,
-  updateDirectMessage,
-  updateGroupMessage
+  subscribeUsersByUids
 } from '../firebase/api';
 import { useAuth } from '../contexts/AuthContext';
-import type { DirectMessageDoc, GroupDoc, GroupMessageDoc, UserProfile } from '../types';
+import type { GroupDoc, UserProfile } from '../types';
 import { formatRelativeTime } from '../utils/date';
 
 const isOnline = (date?: { toDate: () => Date }) => !!date && Date.now() - date.toDate().getTime() < 5 * 60 * 1000;
@@ -30,11 +20,6 @@ export const GroupsPage = () => {
   const [groupName, setGroupName] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('');
   const [inviteCode, setInviteCode] = useState('');
-  const [groupMessage, setGroupMessage] = useState('');
-  const [groupMessages, setGroupMessages] = useState<GroupMessageDoc[]>([]);
-  const [contactUid, setContactUid] = useState('');
-  const [directText, setDirectText] = useState('');
-  const [directMessages, setDirectMessages] = useState<DirectMessageDoc[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -46,23 +31,6 @@ export const GroupsPage = () => {
   const memberUids = useMemo(() => activeGroup?.memberUids ?? [], [activeGroup]);
 
   useEffect(() => subscribeUsersByUids(memberUids, setUsers), [memberUids]);
-  useEffect(() => {
-    if (!activeGroup) return;
-    return subscribeToGroupMessages(activeGroup.id, setGroupMessages);
-  }, [activeGroup]);
-
-  const conversationId = useMemo(
-    () => (user?.uid && contactUid ? conversationIdFromUids(user.uid, contactUid) : ''),
-    [contactUid, user?.uid]
-  );
-
-  useEffect(() => {
-    if (!conversationId) {
-      setDirectMessages([]);
-      return;
-    }
-    return subscribeToDirectMessages(conversationId, setDirectMessages);
-  }, [conversationId]);
 
   const canManage = activeGroup?.adminUids.includes(user?.uid ?? '');
 
@@ -75,20 +43,6 @@ export const GroupsPage = () => {
       createdByName: user.displayName ?? user.email ?? 'Unknown'
     });
     setGroupName('');
-  };
-
-  const sendToGroup = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!activeGroup || !user || !groupMessage.trim()) return;
-    await sendGroupMessage(activeGroup.id, user.uid, user.displayName ?? user.email ?? 'User', groupMessage);
-    setGroupMessage('');
-  };
-
-  const sendToContact = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!user || !contactUid || !directText.trim() || !conversationId) return;
-    await sendDirectMessage(conversationId, user.uid, contactUid, user.displayName ?? user.email ?? 'User', directText);
-    setDirectText('');
   };
 
   return (
@@ -146,66 +100,6 @@ export const GroupsPage = () => {
             </ul>
           </>
         )}
-      </section>
-
-      <section className="card bubble full">
-        <h2>Gruppenchat</h2>
-        <form className="inline" onSubmit={sendToGroup}>
-          <input value={groupMessage} onChange={(e) => setGroupMessage(e.target.value)} placeholder="Nachricht an Gruppe" />
-          <button className="btn">Senden</button>
-        </form>
-        <ul className="list">
-          {groupMessages.map((msg) => {
-            const editable = msg.senderUid === user?.uid && canEditMessage(msg.createdAt);
-            return (
-              <li key={msg.id}>
-                <div>
-                  <strong>{msg.senderName}</strong>
-                  <p>{msg.content}</p>
-                  <small>{formatRelativeTime(msg.createdAt)}</small>
-                </div>
-                {editable && (
-                  <div className="inline">
-                    <button className="btn btn-secondary" onClick={() => { const next = window.prompt('Bearbeiten', msg.content); if (next) void updateGroupMessage(msg.id, next); }}>Bearbeiten</button>
-                    <button className="btn btn-danger" onClick={() => void deleteGroupMessage(msg.id)}>Löschen</button>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      <section className="card bubble full">
-        <h2>Direktnachrichten</h2>
-        <select value={contactUid} onChange={(e) => setContactUid(e.target.value)}>
-          <option value="">Kontakt wählen</option>
-          {users.filter((u) => u.uid !== user?.uid).map((u) => <option key={u.uid} value={u.uid}>{u.displayName}</option>)}
-        </select>
-        <form className="inline" onSubmit={sendToContact}>
-          <input value={directText} onChange={(e) => setDirectText(e.target.value)} placeholder="Nachricht an Kontakt" />
-          <button className="btn">Senden</button>
-        </form>
-        <ul className="list">
-          {directMessages.map((msg) => {
-            const editable = msg.senderUid === user?.uid && canEditMessage(msg.createdAt);
-            return (
-              <li key={msg.id}>
-                <div>
-                  <strong>{msg.senderName}</strong>
-                  <p>{msg.content}</p>
-                  <small>{formatRelativeTime(msg.createdAt)}</small>
-                </div>
-                {editable && (
-                  <div className="inline">
-                    <button className="btn btn-secondary" onClick={() => { const next = window.prompt('Bearbeiten', msg.content); if (next) void updateDirectMessage(msg.id, next); }}>Bearbeiten</button>
-                    <button className="btn btn-danger" onClick={() => void deleteDirectMessage(msg.id)}>Löschen</button>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
       </section>
     </div>
   );

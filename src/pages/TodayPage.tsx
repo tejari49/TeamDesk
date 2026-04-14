@@ -14,6 +14,7 @@ export const TodayPage = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [openCount, setOpenCount] = useState(0);
+  const [memberFilter, setMemberFilter] = useState<'all' | 'online' | 'offline' | 'withStatus'>('all');
 
   useEffect(() => subscribeToStatusesByDate(todayIso(), setStatuses), []);
   useEffect(() => subscribeToAnnouncements(true, setAnnouncements), []);
@@ -32,42 +33,79 @@ export const TodayPage = () => {
 
   const onlineCount = useMemo(() => users.filter(online).length, [users]);
   const statusByUid = useMemo(() => new Map(statuses.map((s) => [s.uid, s])), [statuses]);
+  const membersWithStatus = useMemo(
+    () => [...users].sort((a, b) => Number(online(b)) - Number(online(a)) || a.displayName.localeCompare(b.displayName)),
+    [users]
+  );
+  const filteredMembers = useMemo(
+    () =>
+      membersWithStatus.filter((member) => {
+        const isMemberOnline = online(member);
+        const hasStatus = !!statusByUid.get(member.uid)?.status;
+        if (memberFilter === 'online') return isMemberOnline;
+        if (memberFilter === 'offline') return !isMemberOnline;
+        if (memberFilter === 'withStatus') return hasStatus;
+        return true;
+      }),
+    [memberFilter, membersWithStatus, statusByUid]
+  );
 
   return (
     <div>
-      <h2>Guten Morgen, {user?.displayName ?? 'Kollege'} 👋</h2>
-      <div className="grid-3">
-        <section className="card bubble">
+      <header className="page-header">
+        <h2>Guten Morgen, {user?.displayName ?? 'Kollege'} 👋</h2>
+        <p className="hint">Dein Überblick für {new Date().toLocaleDateString('de-DE')}.</p>
+      </header>
+
+      <div className="grid-3 compact-grid">
+        <section className="card bubble stat-card">
           <h3>Mein Verknüpfungscode</h3>
           <p className="big-number">{profile?.userCode ?? '-'}</p>
           <small>Diesen Code teilst du mit Gruppenadmins.</small>
         </section>
 
-        <section className="card bubble">
+        <section className="card bubble stat-card">
           <h3>Online jetzt</h3>
           <p className="big-number">{onlineCount}</p>
           <small>{users.length} Nutzer in deinen Gruppen</small>
         </section>
-        <section className="card bubble">
+        <section className="card bubble stat-card">
           <h3>Offene Handovers</h3>
           <p className="big-number">{openCount}</p>
         </section>
-        <section className="card bubble">
+        <section className="card bubble stat-card">
           <h3>Meine Gruppen</h3>
           <p className="big-number">{myGroups.length}</p>
           <Link className="btn" to="/groups">Gruppen öffnen</Link>
         </section>
       </div>
+      <section className="card quick-actions">
+        <h3>Schnellaktionen</h3>
+        <div className="inline">
+          <Link className="btn" to="/team">Status aktualisieren</Link>
+          <Link className="btn btn-secondary" to="/chat">Neue Nachricht</Link>
+          <Link className="btn" to="/handovers">Handover anlegen</Link>
+        </div>
+      </section>
 
-      <section className="card bubble">
-        <h3>Status heute (nur Gruppenmitglieder)</h3>
+      <details className="card detail-card" open>
+        <summary className="section-head detail-summary">
+          <h3>Status heute (nur Gruppenmitglieder)</h3>
+          <span className="pill">{onlineCount} online</span>
+        </summary>
+        <div className="inline">
+          <button type="button" className={`chip ${memberFilter === 'all' ? 'active' : ''}`} onClick={() => setMemberFilter('all')}>Alle</button>
+          <button type="button" className={`chip ${memberFilter === 'online' ? 'active' : ''}`} onClick={() => setMemberFilter('online')}>Online</button>
+          <button type="button" className={`chip ${memberFilter === 'offline' ? 'active' : ''}`} onClick={() => setMemberFilter('offline')}>Offline</button>
+          <button type="button" className={`chip ${memberFilter === 'withStatus' ? 'active' : ''}`} onClick={() => setMemberFilter('withStatus')}>Mit Status</button>
+        </div>
         <ul className="list">
-          {users.map((member) => {
+          {filteredMembers.map((member) => {
             const statusItem = statusByUid.get(member.uid);
             return (
               <li key={member.uid}>
                 <div>
-                  <strong>{member.displayName}</strong>
+                  <strong>{member.displayName}</strong> {online(member) && <span className="pill low">online</span>}
                   <p>{statusItem?.status ?? 'kein Status'}</p>
                   {statusItem?.note && <p className="note-italic">{statusItem.note}</p>}
                 </div>
@@ -75,11 +113,15 @@ export const TodayPage = () => {
               </li>
             );
           })}
+          {filteredMembers.length === 0 && <li className="list-empty">Keine Einträge für den gewählten Filter.</li>}
         </ul>
-      </section>
+      </details>
 
-      <section className="card bubble">
-        <h3>Aktuelle Ankündigungen</h3>
+      <details className="card detail-card">
+        <summary className="section-head detail-summary">
+          <h3>Aktuelle Ankündigungen</h3>
+          <span className="pill">{announcements.length}</span>
+        </summary>
         <ul className="list">
           {announcements.map((a) => (
             <li key={a.id}>
@@ -87,8 +129,9 @@ export const TodayPage = () => {
               <small>{formatRelativeTime(a.updatedAt)}</small>
             </li>
           ))}
+          {announcements.length === 0 && <li className="list-empty">Keine aktiven Ankündigungen.</li>}
         </ul>
-      </section>
+      </details>
     </div>
   );
 };

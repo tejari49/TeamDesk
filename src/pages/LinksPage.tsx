@@ -14,6 +14,14 @@ export const LinksPage = () => {
   const [category, setCategory] = useState('General');
   const [description, setDescription] = useState('');
   const [hovered, setHovered] = useState<LinkDoc | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState('');
+
+  const normalizeUrl = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  };
 
   useEffect(() => subscribeToLinks(!isAdmin, setLinks), [isAdmin]);
 
@@ -26,17 +34,31 @@ export const LinksPage = () => {
 
   const add = async (event: FormEvent) => {
     event.preventDefault();
-    if (!isAdmin) return;
-    await createLink({ title, url, category, description, sortOrder: 100, visible: true });
-    setTitle('');
-    setUrl('');
-    setDescription('');
+    if (!isAdmin) {
+      setFeedback(lang === 'de' ? 'Nur Admins dürfen Links speichern.' : 'Only admins can save links.');
+      return;
+    }
+    setSaving(true);
+    setFeedback('');
+    try {
+      const normalizedUrl = normalizeUrl(url);
+      await createLink({ title: title.trim(), url: normalizedUrl, category: category.trim(), description: description.trim(), sortOrder: 100, visible: true });
+      setTitle('');
+      setUrl('');
+      setDescription('');
+      setFeedback(lang === 'de' ? 'Link wurde gespeichert.' : 'Link saved.');
+    } catch (error) {
+      setFeedback(`${lang === 'de' ? 'Speichern fehlgeschlagen' : 'Save failed'}: ${(error as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="grid-2">
       <section className="card bubble">
         <h2>{lang === 'de' ? 'Schnelllinks' : 'Quick links'}</h2>
+        {feedback && <p className="hint">{feedback}</p>}
         {Object.keys(grouped).length === 0 && <p>{lang === 'de' ? 'Noch keine Links vorhanden. Als Admin den ersten Link anlegen.' : 'No links yet. Add the first from Admin.'}</p>}
         {Object.entries(grouped).map(([group, items]) => (
           <div key={group}>
@@ -67,10 +89,10 @@ export const LinksPage = () => {
           <h2>{lang === 'de' ? 'Link hinzufügen' : 'Add link'}</h2>
           <form className="stack" onSubmit={add}>
             <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            <input placeholder="https://..." type="url" value={url} onChange={(e) => setUrl(e.target.value)} required />
+            <input placeholder="https://..." value={url} onChange={(e) => setUrl(e.target.value)} required />
             <input placeholder="Category" value={category} onChange={(e) => setCategory(e.target.value)} required />
             <input placeholder={lang === 'de' ? 'Kurzbeschreibung (optional)' : 'Short description (optional)'} value={description} onChange={(e) => setDescription(e.target.value)} />
-            <button className="btn">{lang === 'de' ? 'Speichern' : 'Save'}</button>
+            <button className="btn" disabled={saving}>{saving ? (lang === 'de' ? 'Speichert...' : 'Saving...') : (lang === 'de' ? 'Speichern' : 'Save')}</button>
           </form>
         </section>
       )}

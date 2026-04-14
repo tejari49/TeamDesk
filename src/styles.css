@@ -54,6 +54,7 @@ a { color: #0f766e; }
 .btn:disabled { opacity: .7; cursor: not-allowed; }
 .btn-secondary { background: #0f766e; }
 .btn-danger { background: #dc2626; }
+.btn-sm { padding: .35rem .55rem; font-size: .8rem; }
 .badge { font-size: .75rem; text-transform: capitalize; padding: .15rem .5rem; border-radius: 999px; color: white; }
 .badge-office{background:#059669}.badge-remote{background:#0284c7}.badge-vacation{background:#7c3aed}.badge-sick{background:#dc2626}.badge-unavailable{background:#334155}
 .pill { font-size: .75rem; background: #d1fae5; border-radius: 999px; padding: .15rem .45rem; }

@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
+type NavItem = { to: string; label: string };
+
 export const Layout = () => {
   const { logout, profile } = useAuth();
   const { t } = useLanguage();
   const isAdmin = profile?.role === 'admin';
   const [showQuickMenu, setShowQuickMenu] = useState(false);
 
-  const items = [
+  const items: NavItem[] = [
     { to: '/', label: t('today') },
     { to: '/groups', label: t('groups') },
     { to: '/chat', label: t('chat') },
@@ -20,7 +22,7 @@ export const Layout = () => {
     { to: '/settings', label: t('settings') },
     ...(isAdmin ? [{ to: '/admin', label: t('admin') }] : [])
   ];
-  const mobileItems = items.filter((item) => ['/', '/chat', '/groups', '/handovers', '/settings'].includes(item.to));
+  const mobileItems: NavItem[] = items.filter((item: NavItem) => ['/', '/chat', '/groups', '/handovers', '/settings'].includes(item.to));
 
   return (
     <div className="app-shell">

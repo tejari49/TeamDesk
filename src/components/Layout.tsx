@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -6,6 +7,7 @@ export const Layout = () => {
   const { logout, profile } = useAuth();
   const { t } = useLanguage();
   const isAdmin = profile?.role === 'admin';
+  const [showQuickMenu, setShowQuickMenu] = useState(false);
 
   const items = [
     { to: '/', label: t('today') },
@@ -17,6 +19,7 @@ export const Layout = () => {
     { to: '/settings', label: t('settings') },
     ...(isAdmin ? [{ to: '/admin', label: t('admin') }] : [])
   ];
+  const mobileItems = items.filter((item) => ['/', '/chat', '/groups', '/handovers', '/settings'].includes(item.to));
 
   return (
     <div className="app-shell">
@@ -40,8 +43,18 @@ export const Layout = () => {
           <NavLink to="/releases" className="release-link">{t('releases')}</NavLink>
         </div>
       </main>
+      <div className="mobile-fab-wrap">
+        {showQuickMenu && (
+          <div className="mobile-fab-menu">
+            <NavLink to="/team" className="nav-link" onClick={() => setShowQuickMenu(false)}>Status</NavLink>
+            <NavLink to="/chat" className="nav-link" onClick={() => setShowQuickMenu(false)}>Chat</NavLink>
+            <NavLink to="/handovers" className="nav-link" onClick={() => setShowQuickMenu(false)}>Handover</NavLink>
+          </div>
+        )}
+        <button className="mobile-fab btn" onClick={() => setShowQuickMenu((prev) => !prev)}>+</button>
+      </div>
       <nav className="bottom-nav">
-        {items.map((item) => (
+        {mobileItems.map((item) => (
           <NavLink key={item.to} to={item.to} className="nav-link">
             {item.label}
           </NavLink>

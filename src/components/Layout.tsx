@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -61,7 +62,17 @@ export const Layout = () => {
             {item.label}
           </NavLink>
         ))}
+        <button className="nav-link nav-more" onClick={() => setShowMore((prev) => !prev)}>{showMore ? 'Schließen' : 'Mehr'}</button>
       </nav>
+      {showMore && (
+        <div className="mobile-more-sheet">
+          {mobileMore.map((item) => (
+            <NavLink key={item.to} to={item.to} className="nav-link" onClick={() => setShowMore(false)}>
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

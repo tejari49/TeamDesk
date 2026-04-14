@@ -14,6 +14,8 @@ export const LinksPage = () => {
   const [category, setCategory] = useState('General');
   const [description, setDescription] = useState('');
   const [hovered, setHovered] = useState<LinkDoc | null>(null);
+  const [feedback, setFeedback] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => subscribeToLinks(!isAdmin, setLinks), [isAdmin]);
 
@@ -27,10 +29,24 @@ export const LinksPage = () => {
   const add = async (event: FormEvent) => {
     event.preventDefault();
     if (!isAdmin) return;
-    await createLink({ title, url, category, description, sortOrder: 100, visible: true });
-    setTitle('');
-    setUrl('');
-    setDescription('');
+    try {
+      setSaving(true);
+      setFeedback('');
+      await createLink({ title, url, category, description, sortOrder: 100, visible: true });
+      setTitle('');
+      setUrl('');
+      setDescription('');
+      setFeedback(lang === 'de' ? '✅ Link wurde gespeichert.' : '✅ Link saved.');
+    } catch (error) {
+      const message = (error as Error).message || 'unknown';
+      setFeedback(
+        lang === 'de'
+          ? `❌ Speichern fehlgeschlagen: ${message}. Prüfe Admin-Rechte und Firestore-Regeln (/links write).`
+          : `❌ Save failed: ${message}. Check admin role and Firestore rules (/links write).`
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -67,10 +83,11 @@ export const LinksPage = () => {
           <h2>{lang === 'de' ? 'Link hinzufügen' : 'Add link'}</h2>
           <form className="stack" onSubmit={add}>
             <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            <input placeholder="https://..." type="url" value={url} onChange={(e) => setUrl(e.target.value)} required />
+            <input placeholder="https://... oder example.com" value={url} onChange={(e) => setUrl(e.target.value)} required />
             <input placeholder="Category" value={category} onChange={(e) => setCategory(e.target.value)} required />
             <input placeholder={lang === 'de' ? 'Kurzbeschreibung (optional)' : 'Short description (optional)'} value={description} onChange={(e) => setDescription(e.target.value)} />
-            <button className="btn">{lang === 'de' ? 'Speichern' : 'Save'}</button>
+            <button className="btn" disabled={saving}>{saving ? (lang === 'de' ? 'Speichert...' : 'Saving...') : (lang === 'de' ? 'Speichern' : 'Save')}</button>
+            {feedback && <p className="hint">{feedback}</p>}
           </form>
         </section>
       )}
